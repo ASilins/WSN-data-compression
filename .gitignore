@@ -53,3 +53,8 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# contiki files
+build
+*.native
+*.ihex
