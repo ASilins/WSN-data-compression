@@ -155,23 +155,20 @@ void encodeBlock(FIREState* s,
         const int16_t* x_row = &samples[r * D];
         int16_t* e_row = &errors_out[r * D];
 
-        FIRE_predict(s, x_row, pred);
+        FIRE_predict(s, x_prev, pred);
 
         // err = x - pred (store), then train with (prev, x, err)
-        
         for (int j = 0; j < D; ++j) {
             e_row[j] = (int16_t)((int32_t)x_row[j] - (int32_t)pred[j]);
         }
 
         FIRE_train(s, x_prev, x_row, e_row);
 
-        
         for (int j = 0; j < D; ++j) {
             x_prev[j] = x_row[j];
         }
     }
 
-    // Return the last true sample to the caller
     for (int j = 0; j < D; ++j) {
         last_sample[j] = x_prev[j];
     }
@@ -185,7 +182,7 @@ PROCESS_THREAD(main_process, ev, data) {
     PROCESS_BEGIN();
 
     /*
-    // mote runs out of memory for dynamic allocation, so using static arrays
+    // mote runs out of memory for dynamic allocation, so have to use static arrays
     // int16_t* deltas = malloc(timeseries_length * sizeof(int16_t));
     static int16_t deltas[768];
     delta_encoding(timeseries_data, deltas, timeseries_length);
@@ -205,14 +202,14 @@ PROCESS_THREAD(main_process, ev, data) {
     for (int i = 0; i < timeseries_length; i += BLOCK_SIZE) {
         int n_in_block = (i + BLOCK_SIZE <= timeseries_length) ? BLOCK_SIZE : (timeseries_length - i);
         encodeBlock(&fire_state, &timeseries_data[i], n_in_block, BLOCK_D, last_sample, errors_out, last_sample);
-    }
 
-    LOG_INFO_("Fire prediction DONE.\n");
-
-    for (int i = 0; i < timeseries_length; i++) {
-        LOG_INFO_("%d ", errors_out[i]);
+        // Print only the errors produced in this block
+        for (int r = 0; r < n_in_block * BLOCK_D; ++r) {
+            LOG_INFO_("%d ", errors_out[r]);
+        }
     }
     LOG_INFO_("\n");
+    LOG_INFO_("Fire prediction DONE.\n");
 
     // TODO: Bit-pack errors_out and simulate transmission
     // For TelosB, do not store all errors for the entire dataset (too big):
