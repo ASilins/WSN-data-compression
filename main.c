@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <limits.h>
+#include <stdbool.h>
 
 #include "contiki.h"
 #include "timeseries_data.h"
@@ -23,6 +24,133 @@ typedef struct {
     int16_t *deltas;     // length D
 } FIREState;
 
+// Helper funtion for ZigZag encoding
+// ZigZag for 16-bit signed -> 16-bit unsigned.
+// Maps: 0 -> 0, -1 -> 1, 1 -> 2, -2 -> 3, ...
+static inline uint16_t zigzag16(int16_t v) {
+    // Do math in 32-bit, then cast down to avoid UB on shifts
+    uint32_t x = (uint32_t)((int32_t)v);
+    return (uint16_t)(((uint32_t)(x << 1)) ^ (uint32_t)((int32_t)v >> 15));
+}
+
+// Helper function to compute minimum number of bits to represent an unsigned 16-bit integer
+static inline uint8_t bits_required_u16(uint16_t x) {
+    if (!x) return 0;
+    uint8_t n = 0;
+    while (x) {
+        ++n;
+        x >>= 1;
+    }
+    return n; // 1..16
+}
+
+// Simple bit writer: writes LSB-first into bytes
+typedef struct {
+    uint8_t* buf;
+    size_t   cap;       // bytes capacity in buf
+    size_t   byte_pos;  // current byte index
+    uint8_t  bit_pos;   // [0..7], next bit to fill within current byte
+} BitWriter;
+
+// Initialize BitWriter
+static inline void bw_init(BitWriter* bw, uint8_t* buf, size_t cap) {
+    bw->buf = buf;
+    bw->cap = cap;
+    bw->byte_pos = 0;
+    bw->bit_pos = 0;
+    if (cap > 0) {
+        bw->buf[0] = 0;
+    }
+}
+
+// Write nbits (<=32) LSBs of value into BitWriter
+static inline bool bw_put_bits(BitWriter* bw, uint32_t value, uint8_t nbits) {
+    // Write 'nbits' LSBs of 'value' into the stream, LSB-first
+    for (uint8_t i = 0; i < nbits; ++i) {
+        if (bw->byte_pos >= bw->cap) {
+            return false; // overflow
+        }
+        uint8_t bit = (uint8_t)((value >> i) & 1u);
+        bw->buf[bw->byte_pos] |= (uint8_t)(bit << bw->bit_pos);
+        bw->bit_pos++;
+        if (bw->bit_pos == 8) {
+            bw->bit_pos = 0;
+            bw->byte_pos++;
+            if (bw->byte_pos < bw->cap) {
+                bw->buf[bw->byte_pos] = 0;
+            }
+        }
+    }
+    return true;
+}
+
+// Get total bytes used so far in BitWriter
+static inline size_t bw_bytes_used(const BitWriter* bw) {
+    return bw->byte_pos + (bw->bit_pos ? 1u : 0u);
+}
+
+// Bit-pack one block of errors:
+// Format:
+//   header[0] = bw (0..16). If 0 => all zeros, no payload.
+//   header[1] = n_in_block (1..BLOCK_SIZE)
+//   payload   = n_in_block * D values, each bw bits, LSB-first
+//
+// out must have at least 2 + ceil(n_in_block*D*bw/8) bytes.
+// Returns true on success, false on overflow.
+static bool bitpack_errors_block(const int16_t* errors,
+                                 int n_in_block,
+                                 int D,
+                                 uint8_t* out,
+                                 size_t out_cap,
+                                 size_t* out_len)
+{
+    // 1) Find max ZigZag value in block
+    uint16_t max_zz = 0;
+    const int count = n_in_block * D;
+    for (int i = 0; i < count; ++i) {
+        uint16_t zz = zigzag16(errors[i]);
+        if (zz > max_zz) max_zz = zz;
+    }
+
+    // 2) Compute bitwidth
+    uint8_t bw = bits_required_u16(max_zz); // 0..16
+
+    // 3) Header needs 2 bytes
+    if (out_cap < 2) return false;
+    out[0] = bw;
+    out[1] = (uint8_t)n_in_block;
+
+    // 4) If all zeros, done
+    if (bw == 0) {
+        if (out_len) *out_len = 2;
+        return true;
+    }
+
+    // 5) Compute payload size and pack
+    const uint32_t total_bits = (uint32_t)count * (uint32_t)bw;
+    const size_t payload_bytes = (size_t)((total_bits + 7u) >> 3); // ceil(bits/8)
+
+    if (2 + payload_bytes > out_cap) return false;
+
+    BitWriter bwriter;
+    bw_init(&bwriter, out + 2, payload_bytes);
+
+    for (int i = 0; i < count; ++i) {
+        uint16_t zz = zigzag16(errors[i]);
+        if (!bw_put_bits(&bwriter, (uint32_t)zz, bw)) {
+            return false;
+        }
+    }
+    // Sanity: bytes used must equal computed payload_bytes
+    const size_t used = bw_bytes_used(&bwriter);
+    if (used != payload_bytes) {
+        // Shouldn't happen, but keep a guard
+        return false;
+    }
+
+    if (out_len) *out_len = 2 + payload_bytes;
+    return true;
+}
 
 void delta_encoding(const int16_t* timeseries_data, int16_t* deltas, unsigned int length) {
     deltas[0] = timeseries_data[0];
@@ -32,7 +160,7 @@ void delta_encoding(const int16_t* timeseries_data, int16_t* deltas, unsigned in
     }
 }
 
-
+// For initializing FIREState
 void FIRE_init(FIREState* state, int D, uint8_t learnShift, uint8_t w, int32_t* accum, int16_t* deltas) {
     if (D <= 0) {
         LOG_ERR_("FIRE_init: D must be positive\n");
@@ -68,6 +196,7 @@ void FIRE_init(FIREState* state, int D, uint8_t learnShift, uint8_t w, int32_t* 
               D, (int)learnShift, (int)w);
 }
 
+// For predicting next sample
 void FIRE_predict(FIREState* s, const int16_t* prev_sample, int16_t* out_pred) {
     const int D= s->D;
     const int w = s->bitWidth; // 8 or 16
@@ -115,6 +244,7 @@ static inline int32_t signOfNumber(int16_t v) {
     return 0;
 }
 
+// For training/updating FIRE state
 void FIRE_train(FIREState* s, const int16_t* prev_sample, const int16_t* x, const int16_t* err)
 {
     const int D = s->D;
@@ -199,22 +329,53 @@ PROCESS_THREAD(main_process, ev, data) {
     static int16_t deltas[BLOCK_D];
     FIRE_init(&fire_state, BLOCK_D, learnShift, bitWidth, accum, deltas);
 
+    // Buffer for packed output per block:
+    // Worst-case payload = BLOCK_SIZE*BLOCK_D*16 bits = 16 bytes + 2-byte header
+    // Adjust if BLOCK_SIZE or BLOCK_D changes.
+    enum { MAX_W = 16 };
+    static uint8_t packed_buf[2 + ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8)];
+
     for (int i = 0; i < timeseries_length; i += BLOCK_SIZE) {
         int n_in_block = (i + BLOCK_SIZE <= timeseries_length) ? BLOCK_SIZE : (timeseries_length - i);
         encodeBlock(&fire_state, &timeseries_data[i], n_in_block, BLOCK_D, last_sample, errors_out, last_sample);
 
-        // Print only the errors produced in this block
+        // Pack this block of residuals
+        size_t packed_len = 0;
+        bool ok = bitpack_errors_block(errors_out, n_in_block, BLOCK_D,
+                                       packed_buf, sizeof(packed_buf), &packed_len);
+
+        if (!ok) {
+            LOG_ERR_("Bit-pack overflow or error (n=%d)\n", n_in_block);
+        } else {
+            // Print the packed bytes (header + payload) in hex for inspection
+            LOG_INFO_("PKT: ");
+            for (size_t b = 0; b < packed_len; ++b) {
+                LOG_INFO_("%02x ", packed_buf[b]);
+            }
+            LOG_INFO_("\n");
+            
+        }
+
+        /*
+        // Print raw errors of encoding using FIRE forecaster
         for (int r = 0; r < n_in_block * BLOCK_D; ++r) {
             LOG_INFO_("%d ", errors_out[r]);
-        }
+        }*/
     }
     LOG_INFO_("\n");
-    LOG_INFO_("Fire prediction DONE.\n");
+    LOG_INFO_("Fire prediction + bit packing DONE.\n");
 
-    // TODO: Bit-pack errors_out and simulate transmission
+    // TODO: Simulate transmission
     // For TelosB, do not store all errors for the entire dataset (too big):
     // Process block-by-block and transmit or store compressed output immediately.
-
+    /* Sink-side notes:
+    The sink must know D and run the same FIRE predictor update 
+    (same learnShift, bitWidth) to reconstruct x = pred + err in the same order.
+    The first block relies on a shared initial prev_sample 
+    (current code uses zeros by default). 
+    If we want independent decoding, 
+    send an initial raw sample or a reset marker.
+    */
 
     // Free allocated memory
 
