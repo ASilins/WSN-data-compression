@@ -264,7 +264,6 @@ void FIRE_train(FIREState* s, const int16_t* prev_sample, const int16_t* x, cons
     }
 }
 
-
 void encodeBlock(FIREState* s, 
     const int16_t* samples, 
     int n_in_block, 
@@ -305,20 +304,142 @@ void encodeBlock(FIREState* s,
 
 }
 
+// ------------------------------------------------
+// DECODER LOGIC
+// Inverse ZigZag (unsigned 16 -> signed 16)
+static inline int16_t inv_zigzag16(uint16_t zz) {
+    // (zz >> 1) gives magnitude; lowest bit gives sign
+    return (int16_t)((int16_t)(zz >> 1) ^ (int16_t)-(int16_t)(zz & 1));
+}
+
+// Simple BitReader matching BitWriter's LSB-first packing
+typedef struct {
+    const uint8_t* buf;
+    size_t   cap;       // bytes available
+    size_t   byte_pos;
+    uint8_t  bit_pos;   // next bit index (0..7)
+} BitReader;
+
+static inline void br_init(BitReader* br, const uint8_t* buf, size_t cap) {
+    br->buf = buf;
+    br->cap = cap;
+    br->byte_pos = 0;
+    br->bit_pos = 0;
+}
+
+static inline bool br_get_bits(BitReader* br, uint32_t* value_out, uint8_t nbits) {
+    uint32_t v = 0;
+    for (uint8_t i = 0; i < nbits; ++i) {
+        if (br->byte_pos >= br->cap) {
+            return false; // overflow / truncated payload
+        }
+        uint8_t bit = (uint8_t)((br->buf[br->byte_pos] >> br->bit_pos) & 1u);
+        v |= ((uint32_t)bit << i);
+        br->bit_pos++;
+        if (br->bit_pos == 8) {
+            br->bit_pos = 0;
+            br->byte_pos++;
+        }
+    }
+    *value_out = v;
+    return true;
+}
+
+// Decode one packed block into reconstructed samples.
+// Returns true if successful, false if malformed.
+static bool decodeBlock(FIREState* s,
+                        const uint8_t* pkt,
+                        size_t pkt_len,
+                        int D,
+                        const int16_t* prev_sample,
+                        int n_expected_max,
+                        int16_t* out_samples,   // size >= BLOCK_SIZE * D
+                        int16_t* last_sample)
+{
+if (pkt_len < 2) return false;
+    uint8_t bw = pkt[0];
+    uint8_t n  = pkt[1];
+    if (n == 0 || n > n_expected_max) return false;
+    if (bw > 16) return false;
+
+    const int count = n * D;
+
+    // Fast path: all zero residuals
+    const uint8_t* payload = pkt + 2;
+    size_t payload_len = (pkt_len > 2) ? (pkt_len - 2) : 0;
+
+    // Validate payload length for bw > 0
+    if (bw == 0) {
+        if (pkt_len != 2) return false; // no payload expected
+    } else {
+        uint32_t total_bits = (uint32_t)count * (uint32_t)bw;
+        size_t need_bytes = (size_t)((total_bits + 7u) >> 3);
+        if (need_bytes != payload_len) {
+            return false; // malformed length
+        }
+    }
+
+    int16_t x_prev[D];
+    for (int i = 0; i < D; ++i) {
+        x_prev[i] = prev_sample[i];
+    }
+
+    BitReader br;
+    br_init(&br, payload, payload_len);
+
+    for (int r = 0; r < n; ++r) {
+        int16_t pred[D];
+        FIRE_predict(s, x_prev, pred);
+
+        // Reconstruct each channel
+        for (int j = 0; j < D; ++j) {
+            int16_t err = 0;
+            if (bw > 0) {
+                uint32_t zz;
+                if (!br_get_bits(&br, &zz, bw)) {
+                    return false;
+                }
+                err = inv_zigzag16((uint16_t)zz);
+            }
+            int32_t x_hat = (int32_t)pred[j] + (int32_t)err;
+
+            // Skipping clamping: prediction + residual should already be in-range for valid packets
+
+            out_samples[r * D + j] = (int16_t)x_hat;
+        }
+
+        // Train with reconstructed sample & residuals (err = x - pred)
+        for (int j = 0; j < D; ++j) {
+            int16_t err = (int16_t)((int32_t)out_samples[r * D + j] - (int32_t)pred[j]);
+            // Single-channel arrays for FIRE_train signature
+            int16_t x_arr[1]    = { out_samples[r * D + j] };
+            int16_t err_arr[1]  = { err };
+            // Temporarily set D=1 for per-channel update if D>1 in future
+            // Current code: D=1, so direct call works
+            FIRE_train(s, x_prev, x_arr, err_arr);
+        }
+
+        // Update prev sample set (full row)
+        for (int j = 0; j < D; ++j) {
+            x_prev[j] = out_samples[r * D + j];
+        }
+    }
+
+    // Persist last sample
+    for (int j = 0; j < D; ++j) {
+        last_sample[j] = x_prev[j];
+    }
+
+    return true;
+}
+// END DECODER LOGIC
+//------------------------------------------------
+
 PROCESS(main_process, "Main process");
 AUTOSTART_PROCESSES(&main_process);
 
 PROCESS_THREAD(main_process, ev, data) {
     PROCESS_BEGIN();
-
-    /*
-    // mote runs out of memory for dynamic allocation, so have to use static arrays
-    // int16_t* deltas = malloc(timeseries_length * sizeof(int16_t));
-    static int16_t deltas[768];
-    delta_encoding(timeseries_data, deltas, timeseries_length);
-    
-    LOG_INFO_("Delta Encoded Data DONE.\n");
-    */
 
     // FIRE parameters
     uint8_t learnShift = 1; // eta = 1/2
@@ -353,8 +474,60 @@ PROCESS_THREAD(main_process, ev, data) {
                 LOG_INFO_("%02x ", packed_buf[b]);
             }
             LOG_INFO_("\n");
-            
+            // Here we should transmit packets to sink
+            // TO DO: implement transmission logic
+
+            // -------------------------------------------------
+            // Self-test decode 
+            // (in the final implementation decoding will be done on sink side)
+            static int16_t decoded_block[BLOCK_SIZE * BLOCK_D];
+            // Prepare decoder FIRE state copy (must start with SAME predictor state as at encoder start of this block)
+            static FIREState fire_state_dec;
+            static int32_t accum_dec[BLOCK_D];
+            static int16_t deltas_dec[BLOCK_D];
+            FIRE_init(&fire_state_dec, BLOCK_D, learnShift, bitWidth, accum_dec, deltas_dec);
+
+            // Reconstruct predictor start (we replay from stream start)
+            // For correctness in this simple test, we re-run encoding predictor up to block start.
+            // (Inefficient but acceptable for verification; later keep decoder state incrementally.)
+            int16_t prev_sample_replay[BLOCK_D] = {0};
+            int block_start = i;
+            // Replay previous blocks to sync decoder state (ONLY needed because we reinit each time)
+            for (int k = 0; k < block_start; k += BLOCK_SIZE) {
+                int n_prev = (k + BLOCK_SIZE <= timeseries_length) ? BLOCK_SIZE : (timeseries_length - k);
+                encodeBlock(&fire_state_dec, &timeseries_data[k], n_prev, BLOCK_D,
+                            prev_sample_replay, errors_out, prev_sample_replay);
+            }
+            bool dok = decodeBlock(&fire_state_dec,
+                                   packed_buf, packed_len,
+                                   BLOCK_D,
+                                   prev_sample_replay,
+                                   BLOCK_SIZE,
+                                   decoded_block,
+                                   prev_sample_replay);
+
+            if (!dok) {
+                LOG_ERR_("Decode failed for block starting %d\n", i);
+            } else {
+                // Compare original vs decoded
+                int mismatch = 0;
+                for (int r = 0; r < n_in_block; ++r) {
+                    int16_t orig = timeseries_data[i + r];
+                    int16_t dec  = decoded_block[r];
+                    if (orig != dec) {
+                        mismatch = 1;
+                        LOG_ERR_("Mismatch at sample %d: orig=%d dec=%d\n", i + r, orig, dec);
+                        break;
+                    }
+                }
+                if (!mismatch) {
+                    LOG_INFO_("Block %d OK (n=%d)\n", i / BLOCK_SIZE, n_in_block);
+                }
+            }
+        
         }
+        // END decode self-test
+        // -------------------------------------------------
 
         /*
         // Print raw errors of encoding using FIRE forecaster
@@ -363,11 +536,13 @@ PROCESS_THREAD(main_process, ev, data) {
         }*/
     }
     LOG_INFO_("\n");
-    LOG_INFO_("Fire prediction + bit packing DONE.\n");
+    // LOG_INFO_("Fire prediction + bit packing DONE.\n");
+    LOG_INFO_("Encode + pack + decode self-test complete.\n");
 
     // TODO: Simulate transmission
     // For TelosB, do not store all errors for the entire dataset (too big):
     // Process block-by-block and transmit or store compressed output immediately.
+    
     /* Sink-side notes:
     The sink must know D and run the same FIRE predictor update 
     (same learnShift, bitWidth) to reconstruct x = pred + err in the same order.
