@@ -58,5 +58,6 @@ dkms.conf
 build
 *.native
 *.ihex
+*.sky
 
 .DS_Store
