@@ -18,6 +18,17 @@ To get started with the project locally, it is recommended to clone the reposito
 > :information_source: **Note:** \
 The project is setup with the assumption that the submodule is pulled in the root of the `Contiki-ng` project. If setup differently, change contiki location in `Makefile`
 
+## Mote setup
+To run the motes you have to either run on Cooja or on two motes. On one mote you have to upload sink code and on the other producer code. You can build the files by running these commands:
+1. ```sh
+    make TARGET=sky sink.upload
+   ```
+2. ```sh
+    make TARGET=sky producer.upload
+   ```
+
+Then to run the pipeline which sends the data to the sink, you have to press the button on the mote, when on the logs it shows that it has found the sink address.
+
 ## Commit messages
 
 It is recommended to follow the following structure for commit messages:
