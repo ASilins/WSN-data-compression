@@ -1,4 +1,4 @@
-#include "encoder.h"
+#include "sprintz_encoder.h"
 #include "bitpack.h"
 
 // Bit-pack one block of errors:

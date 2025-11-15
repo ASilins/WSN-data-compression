@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+/* -------------------------------------------- */
+
 typedef struct {
     int D;
     uint8_t learnShift;  // e.g., 1 => η=1/2
@@ -19,5 +21,6 @@ void FIRE_predict(FIREState* s, const int16_t* prev_sample, int16_t* out_pred);
 
 // For training/updating FIRE state
 void FIRE_train(FIREState* s, const int16_t* prev_sample, const int16_t* x, const int16_t* err);
-
+                
+/* ============================================ */
 #endif

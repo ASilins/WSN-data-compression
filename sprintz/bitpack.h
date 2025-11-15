@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+/* -------------------------------------------- */
+
 // Simple bit writer: writes LSB-first into bytes
 typedef struct {
     uint8_t* buf;
@@ -41,5 +43,7 @@ uint16_t zigzag16(int16_t v);
 int16_t inv_zigzag16(uint16_t zz);
 // Helper function to compute minimum number of bits to represent an unsigned 16-bit integer
 uint8_t bits_required_u16(uint16_t x);
+                
+/* ============================================ */
 
 #endif

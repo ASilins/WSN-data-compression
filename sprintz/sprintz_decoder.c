@@ -1,4 +1,4 @@
-#include "decoder.h"
+#include "sprintz_decoder.h"
 #include "bitpack.h"
 
 // Decode one packed block into reconstructed samples.

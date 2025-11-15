@@ -1,16 +1,22 @@
 #include "contiki.h"
+
 #include "udp.h"
 #include "pipeline.h"
-#include "sys/log.h"
+
 #include "net/netstack.h"
 #include "net/routing/routing.h"
 #include "net/ipv6/simple-udp.h"
+
+#include "sys/log.h"
 
 #define LOG_MODULE "[Producer]"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
 PROCESS(main_process, "Main process");
-AUTOSTART_PROCESSES(&main_process, &pipeline_process);
+AUTOSTART_PROCESSES(
+    &main_process,
+    &main_pipeline_process,
+    &pipeline_process);
 
 PROCESS_THREAD(main_process, ev, data) {
     static struct etimer timer;
@@ -30,7 +36,7 @@ PROCESS_THREAD(main_process, ev, data) {
 
     NETSTACK_ROUTING.get_root_ipaddr(&root_addr);
 
-    LOG_INFO("Sink reachable: ");
+    LOG_INFO("Sink reachable on: ");
     LOG_INFO_6ADDR(&root_addr);
     LOG_INFO_("\n");
 

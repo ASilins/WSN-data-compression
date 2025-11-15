@@ -27,7 +27,20 @@ To run the motes you have to either run on Cooja or on two motes. On one mote yo
     make TARGET=sky producer.upload
    ```
 
-Then to run the pipeline which sends the data to the sink, you have to press the button on the mote, when on the logs it shows that it has found the sink address.
+Motes have build configurations. This is what you can add to build:
+1. CLASS - Defines if youre building producer or sink. Default is producer. Simple example
+```sh
+    make TARGET=sky CLASS=sink sink.upload
+   ```
+2. ALGO - Defines which algorithm you're using. Default sprintz. Simple example
+```sh
+    make TARGET=sky ALGO=sprintz sink.upload
+   ```
+
+## Creating new algorithm
+To create a new algorithm you have to make the algorithm code in its own directory. In compression directory update encoder and decoder following the Sprintz algorithms
+implementation example. After that, update the Makefile. First add the general build files needed for the algorithm and then add the decode and encode files based on if you're
+building the sink or producer.
 
 ## Commit messages
 

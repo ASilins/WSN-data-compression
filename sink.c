@@ -1,5 +1,6 @@
 #include "contiki.h"
-#include "udp.h"
+#include "sink_net.h"
+
 #include "sys/log.h"
 
 #define LOG_MODULE "[Sink]"
@@ -11,7 +12,7 @@ AUTOSTART_PROCESSES(&main_process);
 PROCESS_THREAD(main_process, ev, data) {
     PROCESS_BEGIN();
 
-    init_udp_root_callback();
+    init_sink_udp();
 
     PROCESS_END();
 }
