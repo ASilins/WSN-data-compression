@@ -16,6 +16,11 @@
 
 #define IEEE802154_CONF_DEFAULT_CHANNEL 26
 
+#define CSMA_CONF_MAX_FRAME_RETRIES 7
+
+// Keep radio always on (best lab reliability; higher energy use)
+#define NETSTACK_CONF_RDC nullrdc_driver
+
 /* ========================================================================= */
 /* ------------------------------- Algorithm ------------------------------- */
 
