@@ -71,8 +71,8 @@ PROCESS_THREAD(pipeline_process, ev, data)
         etimer_set(&timer, CLOCK_SECOND * 0.2);
 
         // Buffer for packed output per block:
-        // Worst-case payload = BLOCK_SIZE*BLOCK_D*16 bits = 16 bytes + 2-byte header
-        // Adjust if BLOCK_SIZE or BLOCK_D changes.
+        // Worst-case payload = BLOCK_SIZE * BLOCK_D * 16 bits + 6-byte header.
+        // Computed as ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8) + HDR_LEN.
         enum { MAX_W = 16 };
 
         // Our custom header layout:
@@ -116,6 +116,10 @@ PROCESS_THREAD(pipeline_process, ev, data)
             #if (LOG_LEVEL == LOG_LEVEL_DBG)
             log_packed_bytes(packed_buf, total_len);
             #endif
+
+            // Producer-side log
+            LOG_INFO("TX seq=%u n=%d bytes=%u prev=%d\n",
+                     (unsigned)seq, n_in_block, (unsigned)total_len, (int)prev_sample);
 
             // Send data
             send_to_sink(packed_buf, total_len);
