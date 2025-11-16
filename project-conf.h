@@ -16,6 +16,12 @@
 
 #define IEEE802154_CONF_DEFAULT_CHANNEL 26
 
+// TelosB (CC2420) TX power: 31 is max (0 dBm)
+#define CC2420_CONF_TXPOWER 31
+
+// Keep radio always on (lab/demo): highest reliability, uses more energy
+#define NETSTACK_CONF_RDC nullrdc_driver
+
 /* ========================================================================= */
 /* ------------------------------- Algorithm ------------------------------- */
 
