@@ -24,7 +24,7 @@ void decode_using_sprintz(const uint8_t *data, uint16_t datalen)
     LOG_INFO("RX seq=%u n=%u payload=%u prev=%d\n",
              (unsigned)seq, (unsigned)n_in_block, (unsigned)payload_len, (int)prev_sample_val);
 
-    // Gap detection (handles wrap-around)
+    // Gap detection
     static uint16_t last_seq = 0;
     static bool have_last = false;
     if (have_last) {

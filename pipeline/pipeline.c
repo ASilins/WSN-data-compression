@@ -68,7 +68,7 @@ PROCESS_THREAD(pipeline_process, ev, data)
         }
 
         LOG_INFO("Starting pipeline\n");
-        etimer_set(&timer, CLOCK_SECOND * 0.2);
+        etimer_set(&timer, CLOCK_SECOND * 1);
 
         // Buffer for packed output per block:
         // Worst-case payload = BLOCK_SIZE * BLOCK_D * 16 bits + 6-byte header.
