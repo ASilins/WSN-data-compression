@@ -37,6 +37,8 @@ Motes have build configurations. This is what you can add to build:
     make TARGET=sky ALGO=sprintz sink.upload
    ```
 
+To run the pipeline, you have to wait until the producer mote prints message that he has found the sink. Then you have to press the button on the mote to start the process. If you try too early, it will not allow you to start the pipeline.
+
 ## Creating new algorithm
 To create a new algorithm you have to make the algorithm code in its own directory. In compression directory update encoder and decoder following the Sprintz algorithms
 implementation example. After that, update the Makefile. First add the general build files needed for the algorithm and then add the decode and encode files based on if you're
