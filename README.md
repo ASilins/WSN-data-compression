@@ -18,6 +18,32 @@ To get started with the project locally, it is recommended to clone the reposito
 > :information_source: **Note:** \
 The project is setup with the assumption that the submodule is pulled in the root of the `Contiki-ng` project. If setup differently, change contiki location in `Makefile`
 
+## Mote setup
+To run the motes you have to either run on Cooja or on two motes. On one mote you have to upload sink code and on the other producer code. You can build the files by running these commands:
+1. ```sh
+    make TARGET=sky sink.upload
+   ```
+2. ```sh
+    make TARGET=sky producer.upload
+   ```
+
+Motes have build configurations. This is what you can add to build:
+1. CLASS - Defines if youre building producer or sink. Default is producer. Simple example
+```sh
+    make TARGET=sky CLASS=sink sink.upload
+   ```
+2. ALGO - Defines which algorithm you're using. Default sprintz. Simple example
+```sh
+    make TARGET=sky ALGO=sprintz sink.upload
+   ```
+
+To run the pipeline, you have to wait until the producer mote prints message that he has found the sink. Then you have to press the button on the mote to start the process. If you try too early, it will not allow you to start the pipeline.
+
+## Creating new algorithm
+To create a new algorithm you have to make the algorithm code in its own directory. In compression directory update encoder and decoder following the Sprintz algorithms
+implementation example. After that, update the Makefile. First add the general build files needed for the algorithm and then add the decode and encode files based on if you're
+building the sink or producer.
+
 ## Commit messages
 
 It is recommended to follow the following structure for commit messages:
