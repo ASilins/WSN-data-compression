@@ -74,7 +74,16 @@ PROCESS_THREAD(pipeline_process, ev, data)
         // Worst-case payload = BLOCK_SIZE*BLOCK_D*16 bits = 16 bytes + 2-byte header
         // Adjust if BLOCK_SIZE or BLOCK_D changes.
         enum { MAX_W = 16 };
-        static uint8_t packed_buf[2 + ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8)];
+
+        // Our custom header layout:
+        // [0..1]   uint16_t seq
+        // [2..3]   uint16_t n_in_block
+        // [4..5]   int16_t  prev_sample (for BLOCK_D == 1)
+        enum { HDR_LEN = 2 + 2 + 2 };
+
+        static uint8_t packed_buf[HDR_LEN + ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8)];
+
+        static uint16_t seq = 0;
 
         static int i = 0;
         for (; i < timeseries_length; i += BLOCK_SIZE)
@@ -84,16 +93,34 @@ PROCESS_THREAD(pipeline_process, ev, data)
 
             int n_in_block = (i + BLOCK_SIZE <= timeseries_length) ? BLOCK_SIZE : (timeseries_length - i);
 
-            size_t packed_len = 0;
-            encode(&timeseries_data[i], n_in_block, packed_buf, sizeof(packed_buf), &packed_len);
+            int16_t prev_sample = (i == 0) ? 0 : timeseries_data[i - 1];
+
+            // Write header (little-endian)
+            packed_buf[0] = (uint8_t)(seq & 0xff);
+            packed_buf[1] = (uint8_t)((seq >> 8) & 0xff);
+            packed_buf[2] = (uint8_t)(n_in_block & 0xff);
+            packed_buf[3] = (uint8_t)((n_in_block >> 8) & 0xff);
+            packed_buf[4] = (uint8_t)(prev_sample & 0xff);
+            packed_buf[5] = (uint8_t)((prev_sample >> 8) & 0xff);
+
+            // Encode payload right after header
+            size_t payload_len = 0;
+            encode(&timeseries_data[i],
+                   n_in_block,
+                   packed_buf + HDR_LEN,
+                   sizeof(packed_buf) - HDR_LEN,
+                   &payload_len);
+
+            size_t total_len = HDR_LEN + payload_len;
 
             #if (LOG_LEVEL == LOG_LEVEL_DBG)
-            log_packed_bytes(packed_buf, packed_len);
+            log_packed_bytes(packed_buf, total_len);
             #endif
 
             // Send data
-            send_to_sink(packed_buf, packed_len);
+            send_to_sink(packed_buf, total_len);
 
+            seq++;
             etimer_reset(&timer);
         }
 
