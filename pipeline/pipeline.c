@@ -6,7 +6,8 @@
 #if (LOG_LEVEL == LOG_LEVEL_DBG)
 void log_packed_bytes(uint8_t *packed_buf, size_t packed_len)
 {
-    // Print the packed bytes (header + payload) in hex for inspection
+    /* Print the packed bytes (header + payload) 
+    ** in hex for inspection. */
     LOG_DBG("PKT: ");
     for (size_t b = 0; b < packed_len; ++b) {
         LOG_DBG_("%02x ", packed_buf[b]);
@@ -35,7 +36,8 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
 
     while (1)
     {
-        PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event && data == &button_sensor);
+        PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event &&
+            data == &button_sensor);
 
         if (!is_sink_located())
         {
@@ -43,7 +45,8 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
             continue;
         }
 
-        process_post(PROCESS_BROADCAST, start_pipeline_event, NULL);
+        process_post(PROCESS_BROADCAST, 
+            start_pipeline_event, NULL);
         break;
     }
 
@@ -70,18 +73,21 @@ PROCESS_THREAD(pipeline_process, ev, data)
         LOG_INFO("Starting pipeline\n");
         etimer_set(&timer, CLOCK_SECOND * 1);
 
-        // Buffer for packed output per block:
-        // Worst-case payload = BLOCK_SIZE * BLOCK_D * 16 bits + 6-byte header.
-        // Computed as ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8) + HDR_LEN.
+        /* Buffer for packed output per block:
+        ** Worst-case payload:
+        **      BLOCK_SIZE * BLOCK_D * 16 bits + 6-byte header.
+        ** Computed as:
+        **      ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8) + HDR_LEN. */
         enum { MAX_W = 16 };
 
-        // Our custom header layout:
-        // [0..1]   uint16_t seq
-        // [2..3]   uint16_t n_in_block
-        // [4..5]   int16_t  prev_sample (for BLOCK_D == 1)
+        /* Our custom header layout:
+        ** [0..1]   uint16_t seq
+        ** [2..3]   uint16_t n_in_block
+        ** [4..5]   int16_t  prev_sample (for BLOCK_D == 1) */
         enum { HDR_LEN = 2 + 2 + 2 };
 
-        static uint8_t packed_buf[HDR_LEN + ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8)];
+        static uint8_t packed_buf[HDR_LEN + 
+            ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8)];
 
         static uint16_t seq = 0;
 
@@ -91,7 +97,9 @@ PROCESS_THREAD(pipeline_process, ev, data)
             // Yield
             PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
 
-            int n_in_block = (i + BLOCK_SIZE <= timeseries_length) ? BLOCK_SIZE : (timeseries_length - i);
+            int n_in_block = (i + BLOCK_SIZE <= timeseries_length)
+                ? BLOCK_SIZE 
+                : (timeseries_length - i);
 
             int16_t prev_sample = (i == 0) ? 0 : timeseries_data[i - 1];
 
