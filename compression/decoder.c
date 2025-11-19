@@ -22,7 +22,8 @@ void decode_using_sprintz(const uint8_t *data, uint16_t datalen)
 
     // RX log
     LOG_INFO("RX seq=%u n=%u payload=%u prev=%d\n",
-             (unsigned)seq, (unsigned)n_in_block, (unsigned)payload_len, (int)prev_sample_val);
+            (unsigned)seq, (unsigned)n_in_block, 
+            (unsigned)payload_len, (int)prev_sample_val);
 
     // Gap detection
     static uint16_t last_seq = 0;
@@ -66,6 +67,7 @@ void decode_using_sprintz(const uint8_t *data, uint16_t datalen)
         LOG_ERR("Decode failed for received block\n");
         return;
     }
+
     // Print decoded block
     LOG_INFO("Decoded block (seq=%u): ", (unsigned)seq);
     for (int i = 0; i < n_in_block * BLOCK_D; i++) {

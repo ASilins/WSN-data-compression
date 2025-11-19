@@ -4,27 +4,23 @@
 #define LOG_MODULE "[Fire]"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
-// Tiny helper func used in FIRE_train() - returns -1, 0, +1 for a signed 16-bit input
-static inline int32_t signOfNumber(int16_t v) {
-    if (v > 0) return 1;
-    if (v < 0) return -1;
-    return 0;
-}
-
 // For initializing FIREState
 void FIRE_init(FIREState* state, int D, uint8_t learnShift, uint8_t w, int32_t* accum, int16_t* deltas) {
     if (D <= 0) {
         LOG_ERR_("FIRE_init: D must be positive\n");
         return;
     }
+
     if (w != 8 && w != 16) {
         LOG_ERR_("FIRE_init: bitWidth must be 8 or 16\n");
         return;
     }
+
     if (accum == NULL || deltas == NULL) {
         LOG_ERR_("FIRE_init: accum and deltas must be non-NULL\n");
         return;
     }
+
     // Optional: keep η reasonable. learnShift = 1 -> η = 1/2 (paper default).
     if (learnShift > 7) {
         LOG_ERR_("FIRE_init: learnShift too large (got %u). Try 0..7.\n", (unsigned)learnShift);
@@ -32,9 +28,9 @@ void FIRE_init(FIREState* state, int D, uint8_t learnShift, uint8_t w, int32_t* 
     }
 
     state->D = D;
-    state->learnShift = learnShift;  //
+    state->learnShift = learnShift;
     state->bitWidth = w;
-    state->accum = accum; // for w==16, this must be int32_t[D]
+    state->accum = accum; // for w == 16, this must be int32_t[D]
     state->deltas = deltas; // int16_t[D]
 
     // Zero-initialize state
@@ -44,12 +40,12 @@ void FIRE_init(FIREState* state, int D, uint8_t learnShift, uint8_t w, int32_t* 
     }
 
     LOG_DBG("FIRE initialized with D=%d, learnShift=%d, bitWidth=%d\n",
-              D, (int)learnShift, (int)w);
+            D, (int)learnShift, (int)w);
 }
 
 // For predicting next sample
 void FIRE_predict(FIREState* s, const int16_t* prev_sample, int16_t* out_pred) {
-    const int D= s->D;
+    const int D = s->D;
     const int w = s->bitWidth; // 8 or 16
     const int learnShift = s->learnShift;  // eta = 2^-learnShift
 
@@ -85,6 +81,14 @@ void FIRE_predict(FIREState* s, const int16_t* prev_sample, int16_t* out_pred) {
         // Store as int16_t
         out_pred[i] = (int16_t)x_hat;
     }
+}
+
+/* Tiny helper func used in FIRE_train()
+** returns -1, 0, +1 for a signed 16-bit input */
+static inline int32_t signOfNumber(int16_t v) {
+    if (v > 0) return 1;
+    if (v < 0) return -1;
+    return 0;
 }
 
 // For training/updating FIRE state
