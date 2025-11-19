@@ -53,3 +53,36 @@ To run the pipeline, you have to run the producer first, and the sink right afte
 
 ## Creating new algorithm
 To create a new algorithm you have to make the algorithm code in its own directory. In compression directory update encoder and decoder following the Sprintz algorithms implementation example. After that, update the Makefile. First add the general build files needed for the algorithm and then add the decode and encode files based on if you're building the sink or producer.
+
+## Commit messages
+
+It is recommended to follow the following structure for commit messages:
+- `add: <commit message>` - used when adding new code/files
+- `fix: <commit message>` - used for bug fixes
+- `update: <commit message>` - used for update, changes or code optimisation
+- `remove: <commit message>` - used for removing code/files
+- `refactor: <commit message>` - used when refactoring the code
+- `doc: <commit message>` - for documentation changes
+- `style: <commit message>` - for formatting, white-space, or style changes
+
+If commit contains more changes and it is hard to group into one, choose on that best describes the changes with the appropriate commit message.
+
+#### Example:
+```sh
+git commit -m "add: lossy compression algorithm"
+```
+
+## Pull Requests
+
+To be able to merge code into develop branch they have to be merged from a Pull Request.
+
+To do that, first create a branch from the develop branch following similar naming strategy as for commit messages:
+- `add/<branch_name>`
+- `fix/<branch_name>`
+- `update/<branch_name>`
+- `remove/<branch_name>`
+- `refactor/<branch_name>`
+- `doc/<branch_name>`
+- `style/<branch_name>`
+
+When code changes have been made, push the branch to remote and create a pull request. It should be possible to merge after the Pull Request is approved by at least one person.
