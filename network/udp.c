@@ -12,17 +12,16 @@ static uip_ipaddr_t *sink_addr;
 
 static void
 udp_rx_callback(struct simple_udp_connection *c,
-         const uip_ipaddr_t *sender_addr,
-         uint16_t sender_port,
-         const uip_ipaddr_t *receiver_addr,
-         uint16_t receiver_port,
-         const uint8_t *data,
-         uint16_t datalen)
+                const uip_ipaddr_t *sender_addr,
+                uint16_t sender_port,
+                const uip_ipaddr_t *receiver_addr,
+                uint16_t receiver_port,
+                const uint8_t *data,
+                uint16_t datalen)
 {
     LOG_DBG("Received %u bytes from ", datalen);
     LOG_DBG_6ADDR(sender_addr);
     LOG_DBG_("\n");
-
 
     LOG_DBG("Data:");
     for (uint16_t i = 0; i < datalen; i++) {

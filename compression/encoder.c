@@ -19,11 +19,13 @@ void encode_sprintz(const int16_t* data,
     static int32_t accum[BLOCK_D]; // BLOCK_D = number of columns
     static int16_t deltas[BLOCK_D];
 
-    FIRE_init(&fire_state, BLOCK_D, (uint8_t)LEARN_SHIFT, (uint8_t)BIT_WIDTH, accum, deltas);
+    FIRE_init(&fire_state, BLOCK_D, (uint8_t)LEARN_SHIFT, 
+        (uint8_t)BIT_WIDTH, accum, deltas);
 
-    encodeBlock(&fire_state, data, n_in_block, BLOCK_D, last_sample, errors_out, last_sample);
-    bool ok = bitpack_errors_block(errors_out, n_in_block, BLOCK_D,
-                                    packed_buf, packed_buf_capacity, packed_len);
+    encodeBlock(&fire_state, data, n_in_block, BLOCK_D, 
+        last_sample, errors_out, last_sample);
+    bool ok = bitpack_errors_block(errors_out, n_in_block, BLOCK_D, 
+        packed_buf, packed_buf_capacity, packed_len);
 
     if (!ok) {
         LOG_ERR("Bit-pack overflow or error (n=%d)\n", n_in_block);
@@ -55,7 +57,8 @@ void encode(const int16_t* data,
     size_t *packed_len)
 {
     #if SPRINTZ
-    encode_sprintz(data, n_in_block, packed_buf, packed_buf_capacity, packed_len);
+    encode_sprintz(data, n_in_block, packed_buf, 
+        packed_buf_capacity, packed_len);
     #endif /* SPRINTZ */
 }
 /* ========================================== */
