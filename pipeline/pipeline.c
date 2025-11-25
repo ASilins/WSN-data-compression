@@ -16,6 +16,16 @@ void log_packed_bytes(uint8_t *packed_buf, size_t packed_len)
 }
 #endif /* (LOG_LEVEL == LOG_LEVEL_DBG) */
 
+void log_algo()
+{
+    #if SPRINTZ
+    LOG_INFO("-- Using Sprintz algorithm --\n");
+    #endif /* SPRINTZ */
+    #if NONE
+    LOG_INFO("-- Using no compression --\n");
+    #endif /* NONE */
+}
+
 /* ----- Process definitions -----*/
 PROCESS(main_pipeline_process, "Main pipeline thread that starts the pipeline process");
 PROCESS(pipeline_process, "Pipeline process");
@@ -73,21 +83,9 @@ PROCESS_THREAD(pipeline_process, ev, data)
         LOG_INFO("Starting pipeline\n");
         etimer_set(&timer, CLOCK_SECOND * 1);
 
-        /* Buffer for packed output per block:
-        ** Worst-case payload:
-        **      BLOCK_SIZE * BLOCK_D * 16 bits + 6-byte header.
-        ** Computed as:
-        **      ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8) + HDR_LEN. */
-        enum { MAX_W = 16 };
+        log_algo();
 
-        /* Our custom header layout:
-        ** [0..1]   uint16_t seq
-        ** [2..3]   uint16_t n_in_block
-        ** [4..5]   int16_t  prev_sample (for BLOCK_D == 1) */
-        enum { HDR_LEN = 2 + 2 + 2 };
-
-        static uint8_t packed_buf[HDR_LEN + 
-            ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8)];
+        static uint8_t packed_buf[PACKED_BUF_SIZE];
 
         static uint16_t seq = 0;
 
@@ -101,15 +99,11 @@ PROCESS_THREAD(pipeline_process, ev, data)
                 ? BLOCK_SIZE 
                 : (timeseries_length - i);
 
-            int16_t prev_sample = (i == 0) ? 0 : timeseries_data[i - 1];
-
             // Write header (little-endian)
             packed_buf[0] = (uint8_t)(seq & 0xff);
             packed_buf[1] = (uint8_t)((seq >> 8) & 0xff);
             packed_buf[2] = (uint8_t)(n_in_block & 0xff);
             packed_buf[3] = (uint8_t)((n_in_block >> 8) & 0xff);
-            packed_buf[4] = (uint8_t)(prev_sample & 0xff);
-            packed_buf[5] = (uint8_t)((prev_sample >> 8) & 0xff);
 
             // Encode payload right after header
             size_t payload_len = 0;
@@ -118,19 +112,18 @@ PROCESS_THREAD(pipeline_process, ev, data)
                    packed_buf + HDR_LEN,
                    sizeof(packed_buf) - HDR_LEN,
                    &payload_len);
-
-            size_t total_len = HDR_LEN + payload_len;
+            payload_len += HDR_LEN;
 
             #if (LOG_LEVEL == LOG_LEVEL_DBG)
-            log_packed_bytes(packed_buf, total_len);
-            #endif
+            log_packed_bytes(packed_buf, payload_len);
 
             // Producer-side log
-            LOG_INFO("TX seq=%u n=%d bytes=%u prev=%d\n",
-                     (unsigned)seq, n_in_block, (unsigned)total_len, (int)prev_sample);
+            LOG_DBG("TX seq=%u n=%d bytes=%u \n",
+                     (unsigned)seq, n_in_block, (unsigned)payload_len);
+            #endif
 
             // Send data
-            send_to_sink(packed_buf, total_len);
+            send_to_sink(packed_buf, payload_len);
 
             seq++;
             etimer_reset(&timer);

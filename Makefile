@@ -19,6 +19,10 @@ PROJECT_SOURCEFILES += \
 
 CFLAGS += -DSPRINTZ=1
 endif
+
+ifeq ($(ALGO),none)
+CFLAGS += -DNONE=1
+endif
 # ===========================================
 # ----------- Mote specific build files -----------
 # ----- For sink -----

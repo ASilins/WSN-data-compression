@@ -1,5 +1,4 @@
 #include "udp.h"
-#include "fire.h"
 #include "decoder.h"
 
 #include <inttypes.h>
