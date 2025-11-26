@@ -3,7 +3,7 @@
 #define LOG_MODULE "[Encoder]"
 #define LOG_LEVEL LOG_LEVEL_DBG
 
-/* ---------- Algorithm definitions --------- */
+/* ---------- Sprintz Algorithm ---------- */
 #if SPRINTZ
 
 static int16_t errors_out[BLOCK_SIZE * BLOCK_D];
@@ -47,8 +47,27 @@ void print_raw_fire_errors(int n_in_block)
 #endif /* PRINT_RAW_FIRE_ERRORS */
 
 #endif /* SPRINTZ */
-/* ========================================== */
-/* ------------------ Main ------------------ */
+
+/* ---------- PLA Algorithm ---------- */
+#if PLA
+
+void encode_pla(const int16_t* data,
+    int n_in_block,
+    uint8_t *packed_buf,
+    size_t packed_buf_capacity,
+    size_t *packed_len)
+{
+    bool ok = pla_encode_block(data, n_in_block, 
+        packed_buf, packed_buf_capacity, packed_len);
+    
+    if (!ok) {
+        LOG_ERR("PLA encode failed (n=%d)\n", n_in_block);
+    }
+}
+
+#endif /* PLA */
+
+/* ---------- Main Encode Function ---------- */
 
 void encode(const int16_t* data,
     int n_in_block,
@@ -59,6 +78,15 @@ void encode(const int16_t* data,
     #if SPRINTZ
     encode_sprintz(data, n_in_block, packed_buf, 
         packed_buf_capacity, packed_len);
-    #endif /* SPRINTZ */
+    return;
+    #endif
+
+    #if PLA
+    encode_pla(data, n_in_block, packed_buf, 
+        packed_buf_capacity, packed_len);
+    return;
+    #endif
+
+    LOG_ERR("No compression algorithm specified!\n");
+    *packed_len = 0;
 }
-/* ========================================== */

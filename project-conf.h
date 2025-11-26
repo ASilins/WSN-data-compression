@@ -25,15 +25,53 @@
 /* ------------------------------- Algorithm ------------------------------- */
 
 #define BLOCK_SIZE 8
-#define BLOCK_D 1 // if uninvariate
+#define BLOCK_D 1 // if univariate
 
+/* ---------- Sprintz Configuration ---------- */
 #if SPRINTZ
 
-// Global Fire params
 #define LEARN_SHIFT 1
 #define BIT_WIDTH 16
 
 #endif /* SPRINTZ */
+
+/* ---------- PLA Configuration ---------- */
+#if PLA
+
+/**
+ * ============================================================
+ * MAX_ERROR_THRESHOLD: Core PLA Parameter (Error Threshold)
+ * ============================================================
+ * 
+ * This parameter controls the trade-off between compression 
+ * quality and compression ratio:
+ * 
+ * | Threshold | Max Error | Compression | Use Case           |
+ * |-----------|-----------|-------------|-------------------|
+ * | 5         | +/-5      | Lower       | High precision    |
+ * | 10        | +/-10     | Medium      | General (default) |
+ * | 20        | +/-20     | Higher      | Storage limited   |
+ * | 50        | +/-50     | Very high   | Trend analysis    |
+ * 
+ * Error Guarantee: |original - reconstructed| <= MAX_ERROR_THRESHOLD
+ * 
+ * For DK1 wind power data (range 0-7500):
+ * - threshold=10 -> relative error ~0.13%
+ * - threshold=20 -> relative error ~0.27%
+ * - threshold=50 -> relative error ~0.67%
+ */
+#define MAX_ERROR_THRESHOLD 10
+
+/**
+ * SLOPE_SCALE: Fixed-point scaling factor for slope
+ * 
+ * Larger value = higher precision
+ * 256 is a good default
+ */
+#define SLOPE_SCALE 256
+
+#endif /* PLA */
+
 /* ========================================================================= */
 /*---------------------------------------------------------------------------*/
 #endif /* PROJECT_CONF_H_ */
