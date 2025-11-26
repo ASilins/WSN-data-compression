@@ -9,6 +9,8 @@
 /* -------------------------------- Network -------------------------------- */
 #define UDP_CLIENT_PORT	8765
 #define UDP_SERVER_PORT	5678
+#define CHANNEL_BROADCAST_PORT 1234
+
 #define UIP_CONF_BUFFER_SIZE 128
 #define QUEUEBUF_CONF_NUM 16
 
@@ -17,6 +19,9 @@
 #define IEEE802154_CONF_DEFAULT_CHANNEL 26
 
 #define CSMA_CONF_MAX_FRAME_RETRIES 7
+
+#define RPL_CONF_DIO_INTERVAL_MIN 12
+#define RPL_CONF_DIO_INTERVAL_DOUBLINGS 6
 
 // Keep radio always on (best lab reliability; higher energy use)
 #define NETSTACK_CONF_RDC nullrdc_driver

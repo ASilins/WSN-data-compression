@@ -46,8 +46,7 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
 
     while (1)
     {
-        PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event &&
-            data == &button_sensor);
+        PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event && data == &button_sensor);
 
         if (!is_sink_located())
         {
@@ -55,8 +54,7 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
             continue;
         }
 
-        process_post(PROCESS_BROADCAST, 
-            start_pipeline_event, NULL);
+        process_post(PROCESS_BROADCAST, start_pipeline_event, NULL);
         break;
     }
 
@@ -118,8 +116,7 @@ PROCESS_THREAD(pipeline_process, ev, data)
             log_packed_bytes(packed_buf, payload_len);
 
             // Producer-side log
-            LOG_DBG("TX seq=%u n=%d bytes=%u \n",
-                     (unsigned)seq, n_in_block, (unsigned)payload_len);
+            LOG_DBG("TX seq=%u n=%d bytes=%u \n", (unsigned)seq, n_in_block, (unsigned)payload_len);
             #endif
 
             // Send data
