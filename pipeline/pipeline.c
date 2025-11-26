@@ -93,7 +93,7 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
 
         energest_flush();
 
-#ifdef USE_SPRINTZ
+#ifdef SPRINTZ
         /* Buffer for packed output per block:
         ** Worst-case payload:
         **      BLOCK_SIZE * BLOCK_D * 16 bits + 6-byte header.
@@ -130,7 +130,7 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
                 ? (uint8_t) BLOCK_SIZE
                 : (uint8_t) (timeseries_length - i);
 
-#ifdef USE_SPRINTZ
+#ifdef SPRINTZ
             int16_t prev_sample = (i == 0) ? 0 : timeseries_data[i - 1];
 
             // Write header (little-endian)
