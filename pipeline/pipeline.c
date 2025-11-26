@@ -73,7 +73,7 @@ PROCESS_THREAD(pipeline_process, ev, data)
         LOG_INFO("Starting pipeline\n");
         etimer_set(&timer, CLOCK_SECOND * 1);
 
-#ifdef USE_SPRINTZ
+#ifdef SPRINTZ
         /* Buffer for packed output per block:
         ** Worst-case payload:
         **      BLOCK_SIZE * BLOCK_D * 16 bits + 6-byte header.
@@ -109,7 +109,7 @@ PROCESS_THREAD(pipeline_process, ev, data)
                 ? BLOCK_SIZE 
                 : (timeseries_length - i);
 
-#ifdef USE_SPRINTZ
+#ifdef SPRINTZ
             int16_t prev_sample = (i == 0) ? 0 : timeseries_data[i - 1];
 
             // Write header (little-endian)
