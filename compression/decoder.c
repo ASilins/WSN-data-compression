@@ -6,9 +6,7 @@
 #if SPRINTZ
 void decode_using_sprintz(const uint8_t *data, uint16_t datalen)
 {
-    // Header: seq(2) + n_in_block(2) + prev_sample(2)  (BLOCK_D==1)
-    enum { HDR_LEN = 2 + 2 + 2 };
-    if (datalen < HDR_LEN) {
+    if (datalen < (HDR_LEN + SPRINTZ_HDR_LEN)) {
         LOG_ERR("Packet too short for header\n");
         return;
     }
@@ -17,8 +15,8 @@ void decode_using_sprintz(const uint8_t *data, uint16_t datalen)
     uint16_t n_in_block = (uint16_t)(data[2] | (data[3] << 8));
     int16_t prev_sample_val = (int16_t)(data[4] | (data[5] << 8));
 
-    const uint8_t *payload = data + HDR_LEN;
-    uint16_t payload_len = (uint16_t)(datalen - HDR_LEN);
+    const uint8_t *payload = data + HDR_LEN + SPRINTZ_HDR_LEN;
+    uint16_t payload_len = (uint16_t)(datalen - (HDR_LEN + SPRINTZ_HDR_LEN));
 
     // RX log
     LOG_INFO("RX seq=%u n=%u payload=%u prev=%d\n",
@@ -77,12 +75,43 @@ void decode_using_sprintz(const uint8_t *data, uint16_t datalen)
 }
 #endif /* SPRINTZ */
 
+#if NONE
+
+void decode_using_none(const uint8_t *data, uint16_t datalen)
+{
+    if (datalen < (HDR_LEN)) {
+        LOG_ERR("Packet too short for header\n");
+        return;
+    }
+
+    uint16_t seq = (uint16_t)(data[0] | (data[1] << 8));
+    uint16_t n_in_block = (uint16_t)(data[2] | (data[3] << 8));
+
+    const uint8_t *payload = data + HDR_LEN;
+
+    LOG_INFO("Transferend block (seq=%u): ", (unsigned)seq);
+    int buf_pos = 0;
+    for (int i = 0; i < n_in_block; i++)
+    {
+        int num = (int16_t)(payload[buf_pos] | (payload[buf_pos+1] << 8));
+        LOG_INFO_("%d ", num);
+        buf_pos += 2;
+    }
+    LOG_INFO_("\n");
+
+}
+#endif /* NONE */
+
 void decode(const uint8_t *data, uint16_t datalen)
 {
     #if SPRINTZ
     decode_using_sprintz(data, datalen);
     return;
     #endif /* SPRINTZ */
+    #if NONE
+    decode_using_none(data, datalen);
+    return;
+    #endif /* NONE */
 
     LOG_ERR("No algorithm specified for decoding");
 }

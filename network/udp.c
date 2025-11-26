@@ -1,5 +1,4 @@
 #include "udp.h"
-#include "fire.h"
 #include "decoder.h"
 
 #include <inttypes.h>
@@ -8,6 +7,7 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 
 static struct simple_udp_connection udp_conn;
+static struct simple_udp_connection channel_udp_conn;
 static uip_ipaddr_t *sink_addr;
 
 static void
@@ -30,9 +30,28 @@ udp_rx_callback(struct simple_udp_connection *c,
     LOG_DBG_("\n");
 }
 
+static void
+channel_selection_rx_callback(struct simple_udp_connection *c,
+                const uip_ipaddr_t *sender_addr,
+                uint16_t sender_port,
+                const uip_ipaddr_t *receiver_addr,
+                uint16_t receiver_port,
+                const uint8_t *data,
+                uint16_t datalen)
+{
+    if (datalen == 1) {
+        int channel = data[0];
+        LOG_INFO("Setting channel to: %d\n", channel);
+        NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, channel);
+        rpl_timers_schedule_periodic_dis();
+    }
+}
+
 void init_udp_callback()
 {
     LOG_INFO("Setting up UDP callback\n");
+    simple_udp_register(&channel_udp_conn, CHANNEL_BROADCAST_PORT, NULL,
+        CHANNEL_BROADCAST_PORT, channel_selection_rx_callback);
     simple_udp_register(&udp_conn, UDP_CLIENT_PORT, NULL,
         UDP_SERVER_PORT, udp_rx_callback);
 }

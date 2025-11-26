@@ -45,6 +45,10 @@ The motes have two optional build configurations, which you can add to build:
     make TARGET=sky ALGO=sprintz sink.upload
    ```
 
+Algorithm options:
+1. sprintz - Lossless compression algorithm
+2. none - No compression algorithm
+
 ### Practical instructions
 
 To run the pipeline, you have to run the producer first, and the sink right after that. Once they're running press the *reset* (red) button on both of them, so the sink can reach the producer - should take around 30 seconds. When it says "Sink reachable" begin sending the data by pressing the *user* (white) button. This starts the pipeline, and you can see the encoded packets being sent on the producer side, and gradually the sink receiving the decoded blocks.

@@ -26,10 +26,13 @@ PROCESS_THREAD(main_process, ev, data) {
 
     init_udp_callback();
 
+    etimer_set(&timer, CLOCK_SECOND * 10);
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+
     LOG_INFO("Waiting for sink...\n");
 
     while(!NETSTACK_ROUTING.node_is_reachable()) {
-        etimer_set(&timer, CLOCK_SECOND * 4);
+        etimer_set(&timer, CLOCK_SECOND * 6);
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
         LOG_INFO("Still waiting for sink...\n");
     }
