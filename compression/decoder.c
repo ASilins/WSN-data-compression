@@ -1,4 +1,6 @@
 #include "decoder.h"
+#include "sprintz/fire.h"
+#include "sprintz/sprintz_decoder.h"
 
 #define LOG_MODULE "[Decoder]"
 #define LOG_LEVEL LOG_LEVEL_INFO
