@@ -220,6 +220,7 @@ bool pla_encode_block(
 
     /* Calculate compression ratio */
     // int orig_bytes = n_in_block * 2;
+    // TODO: use orig_bytes if needed (fix float error)
     LOG_INFO("Encoded: n=%d -> %d segments, %u bytes\n",
              n_in_block, n_segments, (unsigned)pos);
     LOG_INFO("Threshold=%d, SLOPE_SCALE=%d\n", 
