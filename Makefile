@@ -10,7 +10,11 @@ CFLAGS += -DENERGEST_CONF_ON=1
 CLASS ?= producer
 ALGO ?= sprintz
 
+# ============================================
 # ---------- Algorithm build files ----------
+# ============================================
+
+# ----- Sprintz (lossless) -----
 ifeq ($(ALGO),sprintz)
 PROJECTDIRS += sprintz
 PROJECT_SOURCEFILES += \
@@ -23,8 +27,17 @@ endif
 ifeq ($(ALGO),none)
 CFLAGS += -DNONE=1
 endif
-# ===========================================
-# ----------- Mote specific build files -----------
+
+# ----- PLA (lossy, with error threshold) -----
+ifeq ($(ALGO),pla)
+PROJECTDIRS += pla
+CFLAGS += -DPLA=1
+endif
+
+# ============================================
+# ----------- Mote specific build files -----
+# ============================================
+
 # ----- For root -----
 ifeq ($(CLASS),root)
 PROJECT_SOURCEFILES += \
@@ -32,13 +45,17 @@ PROJECT_SOURCEFILES += \
 	decoder.c
 CFLAGS += -DROOT=1
 
-# Add algorithm dependend decoder
-	ifeq ($(ALGO),sprintz)
-	PROJECT_SOURCEFILES += sprintz_decoder.c
-	endif
+# Add algorithm dependent decoder
+ifeq ($(ALGO),sprintz)
+PROJECT_SOURCEFILES += sprintz_decoder.c
 endif
-# ====================
-# --- For producer ---
+
+ifeq ($(ALGO),pla)
+PROJECT_SOURCEFILES += pla_decoder.c
+endif
+endif
+
+# ----- For producer -----
 ifeq ($(CLASS),producer)
 PROJECTDIRS += pipeline
 PROJECT_SOURCEFILES += \
@@ -47,12 +64,15 @@ PROJECT_SOURCEFILES += \
 	encoder.c
 CFLAGS += -DPRODUCER=1
 
-# Add algorithm dependend encoder
-	ifeq ($(ALGO),sprintz)
-	PROJECT_SOURCEFILES += sprintz_encoder.c
-	endif
+# Add algorithm dependent encoder
+ifeq ($(ALGO),sprintz)
+PROJECT_SOURCEFILES += sprintz_encoder.c
 endif
-# ====================
-# ===========================================
 
+ifeq ($(ALGO),pla)
+PROJECT_SOURCEFILES += pla_encoder.c
+endif
+endif
+
+# ============================================
 include $(CONTIKI)/Makefile.include
