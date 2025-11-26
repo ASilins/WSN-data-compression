@@ -73,6 +73,7 @@ PROCESS_THREAD(pipeline_process, ev, data)
         LOG_INFO("Starting pipeline\n");
         etimer_set(&timer, CLOCK_SECOND * 1);
 
+#ifdef USE_SPRINTZ
         /* Buffer for packed output per block:
         ** Worst-case payload:
         **      BLOCK_SIZE * BLOCK_D * 16 bits + 6-byte header.
@@ -88,6 +89,13 @@ PROCESS_THREAD(pipeline_process, ev, data)
 
         static uint8_t packed_buf[HDR_LEN + 
             ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8)];
+#else
+        /* PLA doesn't need the Sprintz-specific header */
+        enum { HDR_LEN = 0 };
+        
+        static uint8_t packed_buf[
+            ((BLOCK_SIZE * BLOCK_D * 16 + 7) / 8)];
+#endif
 
         static uint16_t seq = 0;
 
@@ -101,6 +109,7 @@ PROCESS_THREAD(pipeline_process, ev, data)
                 ? BLOCK_SIZE 
                 : (timeseries_length - i);
 
+#ifdef USE_SPRINTZ
             int16_t prev_sample = (i == 0) ? 0 : timeseries_data[i - 1];
 
             // Write header (little-endian)
@@ -128,6 +137,25 @@ PROCESS_THREAD(pipeline_process, ev, data)
             // Producer-side log
             LOG_INFO("TX seq=%u n=%d bytes=%u prev=%d\n",
                      (unsigned)seq, n_in_block, (unsigned)total_len, (int)prev_sample);
+#else
+            // PLA encoding without header
+            size_t payload_len = 0;
+            encode(&timeseries_data[i],
+                   n_in_block,
+                   packed_buf,
+                   sizeof(packed_buf),
+                   &payload_len);
+
+            size_t total_len = payload_len;
+
+            #if (LOG_LEVEL == LOG_LEVEL_DBG)
+            log_packed_bytes(packed_buf, total_len);
+            #endif
+
+            // Producer-side log
+            LOG_INFO("TX seq=%u n=%d bytes=%u\n",
+                     (unsigned)seq, n_in_block, (unsigned)total_len);
+#endif
 
             // Send data
             send_to_sink(packed_buf, total_len);
