@@ -73,29 +73,26 @@ PROCESS_THREAD(pipeline_process, ev, data)
         LOG_INFO("Starting pipeline\n");
         etimer_set(&timer, CLOCK_SECOND * 1);
 
-#ifdef SPRINTZ
-        /* Buffer for packed output per block:
-        ** Worst-case payload:
-        **      BLOCK_SIZE * BLOCK_D * 16 bits + 6-byte header.
-        ** Computed as:
-        **      ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8) + HDR_LEN. */
-        enum { MAX_W = 16 };
-
-        /* Our custom header layout:
+    #ifdef SPRINTZ
+        /* Sprintz header layout:
         ** [0..1]   uint16_t seq
         ** [2..3]   uint16_t n_in_block
         ** [4..5]   int16_t  prev_sample (for BLOCK_D == 1) */
-        enum { HDR_LEN = 2 + 2 + 2 };
+        enum { SPRINTZ_HDR_LEN = 2 + 2 + 2 };
+        enum { MAX_W = 16 };
 
-        static uint8_t packed_buf[HDR_LEN + 
+        static uint8_t packed_buf[SPRINTZ_HDR_LEN + 
             ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8)];
-#else
-        /* PLA doesn't need the Sprintz-specific header */
-        enum { HDR_LEN = 0 };
+    #else
+        /* PLA header layout:
+        ** [0]      uint8_t number_of_segments
+        ** Payload: 5 bytes per segment (end_index, start_value, slope_q) */
+        enum { PLA_HDR_LEN = 1 };
         
-        static uint8_t packed_buf[
-            ((BLOCK_SIZE * BLOCK_D * 16 + 7) / 8)];
-#endif
+        /* Worst case: each sample is its own segment = timeseries_length segments
+        ** Each segment = 5 bytes */
+        static uint8_t packed_buf[PLA_HDR_LEN + (BLOCK_SIZE * 5)];
+    #endif
 
         static uint16_t seq = 0;
 
@@ -109,10 +106,10 @@ PROCESS_THREAD(pipeline_process, ev, data)
                 ? BLOCK_SIZE 
                 : (timeseries_length - i);
 
-#ifdef SPRINTZ
+    #ifdef SPRINTZ
             int16_t prev_sample = (i == 0) ? 0 : timeseries_data[i - 1];
 
-            // Write header (little-endian)
+            // Write Sprintz header (little-endian)
             packed_buf[0] = (uint8_t)(seq & 0xff);
             packed_buf[1] = (uint8_t)((seq >> 8) & 0xff);
             packed_buf[2] = (uint8_t)(n_in_block & 0xff);
@@ -124,38 +121,37 @@ PROCESS_THREAD(pipeline_process, ev, data)
             size_t payload_len = 0;
             encode(&timeseries_data[i],
                    n_in_block,
-                   packed_buf + HDR_LEN,
-                   sizeof(packed_buf) - HDR_LEN,
+                   packed_buf + SPRINTZ_HDR_LEN,
+                   sizeof(packed_buf) - SPRINTZ_HDR_LEN,
                    &payload_len);
 
-            size_t total_len = HDR_LEN + payload_len;
+            size_t total_len = SPRINTZ_HDR_LEN + payload_len;
 
             #if (LOG_LEVEL == LOG_LEVEL_DBG)
             log_packed_bytes(packed_buf, total_len);
             #endif
 
-            // Producer-side log
             LOG_INFO("TX seq=%u n=%d bytes=%u prev=%d\n",
                      (unsigned)seq, n_in_block, (unsigned)total_len, (int)prev_sample);
-#else
-            // PLA encoding without header
-            size_t payload_len = 0;
+    #else
+            // PLA encoding
+            // The encoder writes the number_of_segments header and segments directly to packed_buf
+            size_t total_len = 0;
             encode(&timeseries_data[i],
                    n_in_block,
                    packed_buf,
                    sizeof(packed_buf),
-                   &payload_len);
-
-            size_t total_len = payload_len;
+                   &total_len);
 
             #if (LOG_LEVEL == LOG_LEVEL_DBG)
             log_packed_bytes(packed_buf, total_len);
             #endif
 
-            // Producer-side log
-            LOG_INFO("TX seq=%u n=%d bytes=%u\n",
-                     (unsigned)seq, n_in_block, (unsigned)total_len);
-#endif
+            // PLA log (number of segments is in packed_buf[0])
+            uint8_t num_segments = packed_buf[0];
+            LOG_INFO("TX seq=%u n=%d bytes=%u segments=%u\n",
+                     (unsigned)seq, n_in_block, (unsigned)total_len, num_segments);
+    #endif
 
             // Send data
             send_to_sink(packed_buf, total_len);
