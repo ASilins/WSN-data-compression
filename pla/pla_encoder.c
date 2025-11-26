@@ -219,10 +219,9 @@ bool pla_encode_block(
     *out_len = pos;
 
     /* Calculate compression ratio */
-    int orig_bytes = n_in_block * 2;
-    LOG_INFO("Encoded: n=%d -> %d segments, %u bytes (%.1fx compression)\n",
-             n_in_block, n_segments, (unsigned)pos,
-             (float)orig_bytes / pos);
+    // int orig_bytes = n_in_block * 2;
+    LOG_INFO("Encoded: n=%d -> %d segments, %u bytes\n",
+             n_in_block, n_segments, (unsigned)pos);
     LOG_INFO("Threshold=%d, SLOPE_SCALE=%d\n", 
              MAX_ERROR_THRESHOLD, SLOPE_SCALE);
 
