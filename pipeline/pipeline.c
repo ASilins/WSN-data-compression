@@ -42,14 +42,14 @@ void log_energest_stats()
     // Energy (mJ) = (ticks / ENERGEST_SECOND) * 1000ms * voltage * current_mA / 1000
     // Simplified: (ticks * voltage * current_mA) / ENERGEST_SECOND
     
-    unsigned long cpu_mj = (cpu_time * 3 * 18) / (energest_second * 10); // 3V * 1.8mA
-    unsigned long lpm_mj = (lpm_time * 3 * 51) / (energest_second * 1000); // 3V * 0.051mA
-    unsigned long tx_mj = (tx_time * 3 * 195) / (energest_second * 10); // 3V * 19.5mA
-    unsigned long rx_mj = (rx_time * 3 * 218) / (energest_second * 10); // 3V * 21.8mA
+    uint16_t cpu_mj = (uint16_t)((cpu_time * 3 * 18) / (energest_second * 10)); // 3V * 1.8mA
+    uint16_t lpm_mj = (uint16_t)((lpm_time * 3 * 51) / (energest_second * 1000)); // 3V * 0.051mA
+    uint16_t tx_mj = (uint16_t)((tx_time * 3 * 195) / (energest_second * 10)); // 3V * 19.5mA
+    uint16_t rx_mj = (uint16_t)((rx_time * 3 * 218) / (energest_second * 10)); // 3V * 21.8mA
     
-    unsigned long total_mj = cpu_mj + lpm_mj + tx_mj + rx_mj;
+    uint16_t total_mj = (uint16_t)(cpu_mj + lpm_mj + tx_mj + rx_mj);
     
-    LOG_INFO("E:%lu,%lu,%lu,%lu,%lu\n", cpu_mj, lpm_mj, tx_mj, rx_mj, total_mj);
+    LOG_INFO("E:%u,%u,%u,%u,%u\n", cpu_mj, lpm_mj, tx_mj, rx_mj, total_mj);
 }
 
 
