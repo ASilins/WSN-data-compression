@@ -41,32 +41,30 @@ static uint8_t channel_selection()
 {
     LOG_DBG("Starting RSSI Scan...\n");
 
-    uint8_t best_channel = 0;
-    int best_result = 0;
+    uint8_t best_channel = 11;
+    int best_result = 127;
 
     // Loop over the channels
-    for (uint8_t k = 11; k <= 22; k++) {
+    for (uint8_t k = 11; k <= 26; k++) {
         NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, k);
 
         int32_t sum = 0;
-        int16_t iterations = 1000;
+        int16_t iterations = 10;
         for (int i = 0; i < iterations; i++) {
             radio_value_t rssi;
             NETSTACK_RADIO.get_value(RADIO_PARAM_RSSI, &rssi);
             sum += rssi;
+            clock_wait(CLOCK_SECOND / 20);
         }
-
-        radio_value_t channel;
-
-        NETSTACK_RADIO.get_value(RADIO_PARAM_CHANNEL, &channel);
 
         int result = sum / iterations;
 
         if (result < best_result) {
             best_channel = k;
+            best_result = result;
         }
 
-        LOG_DBG("Channel: %d, RSSI average over %d iterations: %d dBm \n", channel, iterations, result);
+        LOG_DBG("Channel: %d, RSSI average over %d iterations: %d dBm \n", k, iterations, result);
     }
 
     LOG_INFO("Found best channel: %d\n", best_channel);
