@@ -1,7 +1,8 @@
 #include "pipeline.h"
+#include "sys/energest.h"
 
 #define LOG_MODULE "[Pipeline]"
-#define LOG_LEVEL LOG_LEVEL_DBG
+#define LOG_LEVEL LOG_LEVEL_INFO
 
 #if (LOG_LEVEL == LOG_LEVEL_DBG)
 void log_packed_bytes(uint8_t *packed_buf, size_t packed_len)
@@ -19,12 +20,38 @@ void log_packed_bytes(uint8_t *packed_buf, size_t packed_len)
 void log_algo()
 {
     #if SPRINTZ
-    LOG_INFO("-- Using Sprintz algorithm --\n");
+    LOG_INFO("Sprintz\n");
     #endif /* SPRINTZ */
     #if NONE
-    LOG_INFO("-- Using no compression --\n");
+    LOG_INFO("None\n");
     #endif /* NONE */
 }
+
+// for logging energest stats
+void log_energest_stats()
+{
+    energest_flush();
+
+    unsigned long energest_second = ENERGEST_SECOND;
+    
+    uint64_t cpu_time = energest_type_time(ENERGEST_TYPE_CPU);
+    uint64_t lpm_time = energest_type_time(ENERGEST_TYPE_LPM);
+    uint64_t tx_time = energest_type_time(ENERGEST_TYPE_TRANSMIT);
+    uint64_t rx_time = energest_type_time(ENERGEST_TYPE_LISTEN);
+    
+    // Energy (mJ) = (ticks / ENERGEST_SECOND) * 1000ms * voltage * current_mA / 1000
+    // Simplified: (ticks * voltage * current_mA) / ENERGEST_SECOND
+    
+    unsigned long cpu_mj = (cpu_time * 3 * 18) / (energest_second * 10); // 3V * 1.8mA
+    unsigned long lpm_mj = (lpm_time * 3 * 51) / (energest_second * 1000); // 3V * 0.051mA
+    unsigned long tx_mj = (tx_time * 3 * 195) / (energest_second * 10); // 3V * 19.5mA
+    unsigned long rx_mj = (rx_time * 3 * 218) / (energest_second * 10); // 3V * 21.8mA
+    
+    unsigned long total_mj = cpu_mj + lpm_mj + tx_mj + rx_mj;
+    
+    LOG_INFO("E:%lu,%lu,%lu,%lu,%lu\n", cpu_mj, lpm_mj, tx_mj, rx_mj, total_mj);
+}
+
 
 /* ----- Process definitions -----*/
 PROCESS(main_pipeline_process, "Main pipeline thread that starts the pipeline process");
@@ -42,7 +69,7 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
 
     start_pipeline_event = process_alloc_event();
 
-    LOG_INFO("Pipeline process initializer started\n");
+    LOG_INFO("Ready\n");
 
     while (1)
     {
@@ -50,7 +77,7 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
 
         if (!is_sink_located())
         {
-            LOG_WARN("Sink has not been located, try again in few seconds!\n");
+            LOG_WARN("No sink\n");
             continue;
         }
 
@@ -58,7 +85,6 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
         break;
     }
 
-    LOG_INFO("Pipeline start listener closing!\n");
     PROCESS_END();
 }
 
@@ -78,7 +104,10 @@ PROCESS_THREAD(pipeline_process, ev, data)
             continue;
         }
 
-        LOG_INFO("Starting pipeline\n");
+        LOG_INFO("Start\n");
+
+        energest_flush();
+
         etimer_set(&timer, CLOCK_SECOND * 1);
 
         log_algo();
@@ -126,8 +155,9 @@ PROCESS_THREAD(pipeline_process, ev, data)
             etimer_reset(&timer);
         }
 
-        LOG_INFO_("\n");
-        LOG_INFO("Pipeline finished\n");
+        LOG_INFO("Done\n");
+
+        log_energest_stats();
 
         break;
     }

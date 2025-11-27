@@ -4,7 +4,7 @@ all: $(CONTIKI_PROJECT)
 CONTIKI = ./..
 
 PROJECTDIRS += network data compression
-CFLAGS += -DENERGEST_CONF_ON=0
+CFLAGS += -DENERGEST_CONF_ON=1
 
 # Default settings
 CLASS ?= producer
