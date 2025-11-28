@@ -29,20 +29,20 @@ Build using these commands:
     make TARGET=sky producer.upload
    ```
 
-2. Sink:
+2. Root:
 
 ```sh
-    make TARGET=sky CLASS=sink sink.upload
+    make TARGET=sky CLASS=root root.upload
    ```
 
 The motes have two optional build configurations, which you can add to build:
-1. CLASS - Defines if you're building producer or sink, the default being *producer*. Simple example:
+1. CLASS - Defines if you're building producer or root, the default being *producer*. Simple example:
 ```sh
-    make TARGET=sky CLASS=sink sink.upload
+    make TARGET=sky CLASS=root root.upload
    ```
 1. ALGO - Defines which algorithm you're using, default is *sprintz*. Simple example:
 ```sh
-    make TARGET=sky ALGO=sprintz sink.upload
+    make TARGET=sky ALGO=sprintz root.upload
    ```
 
 Algorithm options:

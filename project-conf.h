@@ -7,21 +7,31 @@
 
 /* ========================================================================= */
 /* -------------------------------- Network -------------------------------- */
-#define UDP_CLIENT_PORT	8765
-#define UDP_SERVER_PORT	5678
-#define CHANNEL_BROADCAST_PORT 1234
+#define ROOT_ACK_PORT 8081
+#define UDP_CLIENT_PORT	8080
+#define UDP_SERVER_PORT	7070
+#define CHANNEL_BROADCAST_PORT 4000
+
+#define IEEE802154_CONF_DEFAULT_CHANNEL 26
+
+#if ROOT
+#define CHANNEL_BROADCAST_COUNT 5
+#define CHANNEL_BROADCAST_DELAY 1
+#endif /* ROOT */
+
+#if PRODUCER
+#define RPL_CONF_DELAY_BEFORE_LEAVING 5
+#endif /* PRODUCER */
 
 #define UIP_CONF_BUFFER_SIZE 128
 #define QUEUEBUF_CONF_NUM 16
 
-#define PRODUCER_CALLBACK 0
-
-#define IEEE802154_CONF_DEFAULT_CHANNEL 26
 
 #define CSMA_CONF_MAX_FRAME_RETRIES 7
 
-#define RPL_CONF_DIO_INTERVAL_MIN 12
-#define RPL_CONF_DIO_INTERVAL_DOUBLINGS 6
+// Keep this for now
+// #define RPL_CONF_DIO_INTERVAL_MIN 12
+// #define RPL_CONF_DIO_INTERVAL_DOUBLINGS 6
 
 // Keep radio always on (best lab reliability; higher energy use)
 #define NETSTACK_CONF_RDC nullrdc_driver
@@ -31,10 +41,10 @@
 
 #define BLOCK_SIZE 8
 /* Our custom header layout:
-** [0..1]   uint16_t seq
-** [2..3]   uint16_t n_in_block
+** [0]   uint8_t seq
+** [1]   uint8_t n_in_block
 */
-#define HDR_LEN 4 // Default header lenght for all algorithms
+#define HDR_LEN 2 // Default header lenght for all algorithms
 
 #if SPRINTZ
 /* --- buffer size spec --- */

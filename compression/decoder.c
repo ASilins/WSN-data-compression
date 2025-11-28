@@ -11,9 +11,9 @@ void decode_using_sprintz(const uint8_t *data, uint16_t datalen)
         return;
     }
 
-    uint16_t seq = (uint16_t)(data[0] | (data[1] << 8));
-    uint16_t n_in_block = (uint16_t)(data[2] | (data[3] << 8));
-    int16_t prev_sample_val = (int16_t)(data[4] | (data[5] << 8));
+    uint8_t seq = (uint8_t)(data[0]);
+    uint8_t n_in_block = (uint8_t)(data[1]);
+    int16_t prev_sample_val = (int16_t)(data[2] | (data[3] << 8));
 
     const uint8_t *payload = data + HDR_LEN + SPRINTZ_HDR_LEN;
     uint16_t payload_len = (uint16_t)(datalen - (HDR_LEN + SPRINTZ_HDR_LEN));
@@ -24,12 +24,12 @@ void decode_using_sprintz(const uint8_t *data, uint16_t datalen)
             (unsigned)payload_len, (int)prev_sample_val);
 
     // Gap detection
-    static uint16_t last_seq = 0;
+    static uint8_t last_seq = 0;
     static bool have_last = false;
     if (have_last) {
-        uint16_t delta = (uint16_t)(seq - last_seq);
+        uint16_t delta = (uint8_t)(seq - last_seq);
         if (delta != 1) {
-            uint16_t expected = (uint16_t)(last_seq + 1);
+            uint8_t expected = (uint16_t)(last_seq + 1);
             uint16_t lost = (uint16_t)(delta - 1);
             LOG_WARN("Seq gap: expected %u got %u (lost %u)\n",
                      expected, seq, lost);
@@ -84,8 +84,8 @@ void decode_using_none(const uint8_t *data, uint16_t datalen)
         return;
     }
 
-    uint16_t seq = (uint16_t)(data[0] | (data[1] << 8));
-    uint16_t n_in_block = (uint16_t)(data[2] | (data[3] << 8));
+    uint8_t seq = (uint8_t)(data[0]);
+    uint8_t n_in_block = (uint8_t)(data[1]);
 
     const uint8_t *payload = data + HDR_LEN;
 
