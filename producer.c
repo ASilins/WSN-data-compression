@@ -44,7 +44,7 @@ PROCESS_THREAD(main_process, ev, data) {
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
 
     LOG_INFO("Sending ACK\n");
-    for (; i < 5; i++)
+    for (; i < 10; i++)
     {
         send_ack_to_root();
         etimer_set(&timer, CLOCK_SECOND / 2);
