@@ -48,7 +48,7 @@ void log_energest_stats()
     
     uint16_t total_mj = (uint16_t)(cpu_mj + lpm_mj + tx_mj + rx_mj);
     
-    LOG_INFO("E:%u,%u,%u,%u,%u\n", cpu_mj, lpm_mj, tx_mj, rx_mj, total_mj);
+    LOG_INFO("E: cpu: %u, lpm: %u, tx: %u, rx: %u, total: %u\n", cpu_mj, lpm_mj, tx_mj, rx_mj, total_mj);
 }
 
 /* ----- Process definitions -----*/
