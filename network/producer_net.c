@@ -9,7 +9,6 @@ static struct simple_udp_connection root_ack_conn;
 static struct simple_udp_connection udp_conn;
 static struct simple_udp_connection channel_selection_conn;
 static uip_ipaddr_t root_addr;
-static uint32_t tx_count;
 extern struct process main_process;
 
 /* -------------------------------------------------------------------- */
@@ -33,8 +32,6 @@ udp_rx_channel_selection_callback(struct simple_udp_connection *c,
             CHANNEL_BROADCAST_PORT, NULL);
 
         process_poll(&main_process);
-    } else {
-        LOG_ERR("Wrong data!\n");
     }
 }
 
@@ -65,8 +62,7 @@ bool root_is_known()
 
 void send_ack_to_root()
 {
-    uint8_t ack = 1;
-    simple_udp_sendto(&root_ack_conn, &ack, 1, &root_addr);
+    simple_udp_sendto(&root_ack_conn, ((uint8_t *) 1), 1, &root_addr);
 }
 
 void send_to_sink(uint8_t *data, size_t len)
@@ -78,6 +74,5 @@ void send_to_sink(uint8_t *data, size_t len)
     #endif
 
     simple_udp_sendto(&udp_conn, data, len, &root_addr);
-    tx_count++;
 }
 /* ==================================================================== */

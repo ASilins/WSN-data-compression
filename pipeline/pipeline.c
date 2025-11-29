@@ -52,7 +52,7 @@ void log_energest_stats()
 }
 
 /* ----- Process definitions -----*/
-PROCESS(main_pipeline_process, "Main pipeline process");
+PROCESS(main_pipeline_process, "Pipeline proc");
 
 /* Pipeline data */
 process_event_t START_PIPELINE_EVENT;

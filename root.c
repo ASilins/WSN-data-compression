@@ -41,7 +41,7 @@ PROCESS_THREAD(main_process, ev, data) {
 
         if (mote_ready)
         {
-            etimer_set(&timer, CLOCK_SECOND * 2);
+            etimer_set(&timer, CLOCK_SECOND * 5);
             PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
             break;
         }

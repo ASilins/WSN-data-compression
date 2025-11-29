@@ -8,7 +8,7 @@
 #define LOG_MODULE "[Producer]"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
-PROCESS(main_process, "Main process");
+PROCESS(main_process, "Main");
 AUTOSTART_PROCESSES(
     &main_process,
     &main_pipeline_process);
@@ -44,9 +44,11 @@ PROCESS_THREAD(main_process, ev, data) {
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
 
     LOG_INFO("Sending ACK\n");
-    for (; i < 3; i++)
+    for (; i < 5; i++)
     {
         send_ack_to_root();
+        etimer_set(&timer, CLOCK_SECOND / 2);
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
     }
 
     while (1)

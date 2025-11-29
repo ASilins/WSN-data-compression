@@ -33,7 +33,7 @@
 
 #define NETSTACK_CONF_WITH_IPV6 1
 #define NETSTACK_CONF_MAC csma_driver
-// #define NETSTACK_CONF_RDC nullrdc_driver
+#define NETSTACK_CONF_RDC nullrdc_driver
 
 /* ========================================================================= */
 /* ------------------------------- Algorithm ------------------------------- */
