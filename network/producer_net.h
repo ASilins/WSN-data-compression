@@ -27,13 +27,9 @@ extern process_event_t CHANNEL_SETUP_EVENT;
 extern volatile struct channel_config config;
 extern volatile bool channel_ready;
 
-void set_channel(uint8_t *ch);
-
 void start_producer_udp();
-
-bool is_root_reachable();
+bool root_is_known();
 void send_ack_to_root();
-void configure_root_addr();
 
 void send_to_sink(uint8_t *data, size_t len);
 #endif /* PRODUCER_NET_H */

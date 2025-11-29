@@ -30,7 +30,7 @@ PROCESS_THREAD(main_process, ev, data) {
     start_dag_root();
 
     // Allow for root broadcast message
-    etimer_set(&timer, CLOCK_SECOND * 1);
+    etimer_set(&timer, CLOCK_SECOND * 2);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
 
     LOG_INFO("Waiting for DAG root discovery\n");
@@ -41,10 +41,12 @@ PROCESS_THREAD(main_process, ev, data) {
 
         if (mote_ready)
         {
-            etimer_set(&timer, CLOCK_SECOND / 2);
+            etimer_set(&timer, CLOCK_SECOND * 2);
             PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
             break;
         }
+        etimer_set(&timer, CLOCK_SECOND / 4);
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
     }
 
     // Broadcast channel selection

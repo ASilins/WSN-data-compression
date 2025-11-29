@@ -19,22 +19,21 @@
 #define CHANNEL_BROADCAST_DELAY 1
 #endif /* ROOT */
 
-#if PRODUCER
-#define RPL_CONF_DELAY_BEFORE_LEAVING 5
-#endif /* PRODUCER */
-
 #define UIP_CONF_BUFFER_SIZE 128
 #define QUEUEBUF_CONF_NUM 16
 
-
 #define CSMA_CONF_MAX_FRAME_RETRIES 7
 
-// Keep this for now
-// #define RPL_CONF_DIO_INTERVAL_MIN 12
+// Some of these things can be adjusted if needed but what is left uncommented has been working on Cooja sims.
+// #define RPL_CONF_DIO_INTERVAL_MIN 8
 // #define RPL_CONF_DIO_INTERVAL_DOUBLINGS 6
+// #define RPL_CONF_DELAY_BEFORE_LEAVING 5
+// #define RPL_CONF_DIS_INTERVAL 2000
+// #define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 16
 
-// Keep radio always on (best lab reliability; higher energy use)
-#define NETSTACK_CONF_RDC nullrdc_driver
+#define NETSTACK_CONF_WITH_IPV6 1
+#define NETSTACK_CONF_MAC csma_driver
+// #define NETSTACK_CONF_RDC nullrdc_driver
 
 /* ========================================================================= */
 /* ------------------------------- Algorithm ------------------------------- */

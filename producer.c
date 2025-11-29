@@ -11,8 +11,7 @@
 PROCESS(main_process, "Main process");
 AUTOSTART_PROCESSES(
     &main_process,
-    &main_pipeline_process,
-    &pipeline_process);
+    &main_pipeline_process);
 
 process_event_t CHANNEL_SETUP_EVENT;
 
@@ -22,6 +21,7 @@ volatile bool channel_ready = false;
 PROCESS_THREAD(main_process, ev, data) {
     static struct etimer timer;
     static struct channel_config local_config;
+    static uint8_t i = 0;
 
     PROCESS_BEGIN();
 
@@ -32,51 +32,55 @@ PROCESS_THREAD(main_process, ev, data) {
     // Send ACK to root that we have connected so it can broadcast channel switch
     while (1)
     {
-        if (is_root_reachable())
+        if (root_is_known())
         {
             break;
         }
-        LOG_INFO("Could not reach root\n");
-        etimer_set(&timer, CLOCK_SECOND * 4);
+        etimer_set(&timer, CLOCK_SECOND / 2);
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
     }
-    configure_root_addr();
-    etimer_set(&timer, CLOCK_SECOND * 2);
+
+    etimer_set(&timer, CLOCK_SECOND * 5);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
-    send_ack_to_root();
+
+    LOG_INFO("Sending ACK\n");
+    for (; i < 3; i++)
+    {
+        send_ack_to_root();
+    }
 
     while (1)
     {
-        PROCESS_YIELD();
-
         if (channel_ready)
         {
             local_config = config;
             break;
         }
+        etimer_set(&timer, CLOCK_SECOND * 2);
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+
+        PROCESS_YIELD();
     }
 
     etimer_set(&timer, CLOCK_SECOND * local_config.delay);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
 
-    set_channel(&local_config.ch);
+    LOG_INFO("New channel: %d\n", local_config.ch);
+    NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, local_config.ch);
 
     while (1)
     {
-        if (is_root_reachable())
+        if (root_is_known())
         {
             break;
         }
-        LOG_INFO("Could not reach root\n");
-        etimer_set(&timer, CLOCK_SECOND * 4);
+        etimer_set(&timer, CLOCK_SECOND * 1);
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
     }
 
-    configure_root_addr();
-
-    etimer_set(&timer, CLOCK_SECOND * 2);
+    etimer_set(&timer, CLOCK_SECOND * 5);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
-    process_post(PROCESS_BROADCAST, START_PIPELINE_LISTENER_EVENT, NULL);
+    process_post(PROCESS_BROADCAST, START_PIPELINE_EVENT, NULL);
 
     PROCESS_YIELD();
     PROCESS_END();

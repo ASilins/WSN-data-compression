@@ -52,55 +52,13 @@ void log_energest_stats()
 }
 
 /* ----- Process definitions -----*/
-PROCESS(main_pipeline_process, "Main pipeline thread that starts the pipeline process");
-PROCESS(pipeline_process, "Pipeline process");
+PROCESS(main_pipeline_process, "Main pipeline process");
 
 /* Pipeline data */
 process_event_t START_PIPELINE_EVENT;
-process_event_t START_PIPELINE_LISTENER_EVENT;
-static bool pipeline_running = false;
 
 /* ----- Main pipeline process ----- */
 PROCESS_THREAD(main_pipeline_process, ev, data)
-{
-    PROCESS_BEGIN();
-
-    START_PIPELINE_EVENT = process_alloc_event();
-    START_PIPELINE_LISTENER_EVENT = process_alloc_event();
-
-    // Wait for configuration before starting listener
-    while (1)
-    {
-        PROCESS_WAIT_EVENT();
-
-        if (ev == START_PIPELINE_LISTENER_EVENT)
-        {
-            break;
-        }
-    }
-
-    SENSORS_ACTIVATE(button_sensor);
-
-    LOG_INFO("Ready\n");
-
-    while (1)
-    {
-        PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event && data == &button_sensor);
-
-        if (pipeline_running)
-        {
-            continue;
-        }
-
-        process_post(PROCESS_BROADCAST, START_PIPELINE_EVENT, NULL);
-        break;
-    }
-
-    PROCESS_END();
-}
-
-/* ----- Pipeline definition ----- */
-PROCESS_THREAD(pipeline_process, ev, data)
 {
     static struct etimer timer;
     static uint8_t packed_buf[PACKED_BUF_SIZE];
@@ -109,19 +67,28 @@ PROCESS_THREAD(pipeline_process, ev, data)
 
     PROCESS_BEGIN();
 
+    START_PIPELINE_EVENT = process_alloc_event();
+
+    // Wait for configuration before starting listener
     while (1)
     {
         PROCESS_WAIT_EVENT();
 
-        if (!(ev == START_PIPELINE_EVENT))
+        if (ev == START_PIPELINE_EVENT)
         {
-            continue;
+            break;
         }
+        etimer_set(&timer, CLOCK_SECOND * 20);
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+    }
 
-        LOG_INFO("Start\n");
-        pipeline_running = true;
-        i = 0;
-        seq = 0;
+    etimer_set(&timer, CLOCK_SECOND * 2);
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+
+    // Process execution
+    while (1)
+    {
+        LOG_INFO("Starting pipeline\n");
         log_algo();
 
         energest_flush();
@@ -164,10 +131,8 @@ PROCESS_THREAD(pipeline_process, ev, data)
         LOG_INFO("Done\n");
 
         log_energest_stats();
-        pipeline_running = false;
-
+        break;
     }
-
 
     PROCESS_END();
 }
