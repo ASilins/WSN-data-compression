@@ -25,11 +25,12 @@ CFLAGS += -DNONE=1
 endif
 # ===========================================
 # ----------- Mote specific build files -----------
-# ----- For sink -----
-ifeq ($(CLASS),sink)
+# ----- For root -----
+ifeq ($(CLASS),root)
 PROJECT_SOURCEFILES += \
-	sink_net.c \
+	root_net.c \
 	decoder.c
+CFLAGS += -DROOT=1
 
 # Add algorithm dependend decoder
 	ifeq ($(ALGO),sprintz)
@@ -41,9 +42,10 @@ endif
 ifeq ($(CLASS),producer)
 PROJECTDIRS += pipeline
 PROJECT_SOURCEFILES += \
-	udp.c \
+	producer_net.c \
 	pipeline.c \
 	encoder.c
+CFLAGS += -DPRODUCER=1
 
 # Add algorithm dependend encoder
 	ifeq ($(ALGO),sprintz)

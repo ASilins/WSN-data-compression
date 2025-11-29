@@ -1,5 +1,4 @@
 #include "pipeline.h"
-#include "sys/energest.h"
 
 #define LOG_MODULE "[Pipeline]"
 #define LOG_LEVEL LOG_LEVEL_INFO
@@ -52,85 +51,60 @@ void log_energest_stats()
     LOG_INFO("E:%u,%u,%u,%u,%u\n", cpu_mj, lpm_mj, tx_mj, rx_mj, total_mj);
 }
 
-
 /* ----- Process definitions -----*/
-PROCESS(main_pipeline_process, "Main pipeline thread that starts the pipeline process");
-PROCESS(pipeline_process, "Pipeline process");
+PROCESS(main_pipeline_process, "Pipeline proc");
 
-/* Custom pipeline start event */
-static process_event_t start_pipeline_event;
+/* Pipeline data */
+process_event_t START_PIPELINE_EVENT;
 
 /* ----- Main pipeline process ----- */
 PROCESS_THREAD(main_pipeline_process, ev, data)
 {
-    PROCESS_BEGIN();
-
-    SENSORS_ACTIVATE(button_sensor);
-
-    start_pipeline_event = process_alloc_event();
-
-    LOG_INFO("Ready\n");
-
-    while (1)
-    {
-        PROCESS_WAIT_EVENT_UNTIL(ev == sensors_event && data == &button_sensor);
-
-        if (!is_sink_located())
-        {
-            LOG_WARN("No sink\n");
-            continue;
-        }
-
-        process_post(PROCESS_BROADCAST, start_pipeline_event, NULL);
-        break;
-    }
-
-    PROCESS_END();
-}
-
-/* ----- Pipeline definition ----- */
-PROCESS_THREAD(pipeline_process, ev, data)
-{
     static struct etimer timer;
+    static uint8_t packed_buf[PACKED_BUF_SIZE];
+    static uint8_t seq = 0;
+    static int i = 0;
 
     PROCESS_BEGIN();
 
+    START_PIPELINE_EVENT = process_alloc_event();
+
+    // Wait for configuration before starting listener
     while (1)
     {
         PROCESS_WAIT_EVENT();
 
-        if (!(ev == start_pipeline_event))
+        if (ev == START_PIPELINE_EVENT)
         {
-            continue;
+            break;
         }
+        etimer_set(&timer, CLOCK_SECOND * 20);
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+    }
 
-        LOG_INFO("Start\n");
+    etimer_set(&timer, CLOCK_SECOND * 2);
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
 
-        energest_flush();
-
-        etimer_set(&timer, CLOCK_SECOND * 1);
-
+    // Process execution
+    while (1)
+    {
+        LOG_INFO("Starting pipeline\n");
         log_algo();
 
-        static uint8_t packed_buf[PACKED_BUF_SIZE];
-
-        static uint16_t seq = 0;
-
-        static int i = 0;
+        energest_flush();
         for (; i < timeseries_length; i += BLOCK_SIZE)
         {
             // Yield
+            etimer_set(&timer, CLOCK_SECOND / 20);
             PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
 
-            int n_in_block = (i + BLOCK_SIZE <= timeseries_length)
-                ? BLOCK_SIZE 
-                : (timeseries_length - i);
+            uint8_t n_in_block = (i + BLOCK_SIZE <= timeseries_length)
+                ? (uint8_t) BLOCK_SIZE
+                : (uint8_t) (timeseries_length - i);
 
-            // Write header (little-endian)
-            packed_buf[0] = (uint8_t)(seq & 0xff);
-            packed_buf[1] = (uint8_t)((seq >> 8) & 0xff);
-            packed_buf[2] = (uint8_t)(n_in_block & 0xff);
-            packed_buf[3] = (uint8_t)((n_in_block >> 8) & 0xff);
+            // Write header
+            packed_buf[0] = seq;
+            packed_buf[1] = n_in_block;
 
             // Encode payload right after header
             size_t payload_len = 0;
@@ -152,13 +126,11 @@ PROCESS_THREAD(pipeline_process, ev, data)
             send_to_sink(packed_buf, payload_len);
 
             seq++;
-            etimer_reset(&timer);
         }
 
         LOG_INFO("Done\n");
 
         log_energest_stats();
-
         break;
     }
 

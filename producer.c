@@ -1,49 +1,89 @@
 #include "contiki.h"
 
-#include "udp.h"
+#include "producer_net.h"
 #include "pipeline.h"
-
-#include "net/netstack.h"
-#include "net/routing/routing.h"
-#include "net/ipv6/simple-udp.h"
 
 #include "sys/log.h"
 
 #define LOG_MODULE "[Producer]"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
-PROCESS(main_process, "Main process");
+PROCESS(main_process, "Main");
 AUTOSTART_PROCESSES(
     &main_process,
-    &main_pipeline_process,
-    &pipeline_process);
+    &main_pipeline_process);
+
+process_event_t CHANNEL_SETUP_EVENT;
+
+volatile struct channel_config config;
+volatile bool channel_ready = false;
 
 PROCESS_THREAD(main_process, ev, data) {
     static struct etimer timer;
-    static uip_ipaddr_t root_addr;
+    static struct channel_config local_config;
+    static uint8_t i = 0;
 
     PROCESS_BEGIN();
 
-    init_udp_callback();
+    CHANNEL_SETUP_EVENT = process_alloc_event();
 
-    etimer_set(&timer, CLOCK_SECOND * 10);
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+    start_producer_udp();
 
-    LOG_INFO("Waiting for sink...\n");
-
-    while(!NETSTACK_ROUTING.node_is_reachable()) {
-        etimer_set(&timer, CLOCK_SECOND * 6);
+    // Send ACK to root that we have connected so it can broadcast channel switch
+    while (1)
+    {
+        if (root_is_known())
+        {
+            break;
+        }
+        etimer_set(&timer, CLOCK_SECOND / 2);
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
-        LOG_INFO("Still waiting for sink...\n");
     }
 
-    NETSTACK_ROUTING.get_root_ipaddr(&root_addr);
+    etimer_set(&timer, CLOCK_SECOND * 5);
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
 
-    LOG_INFO("Sink reachable on: ");
-    LOG_INFO_6ADDR(&root_addr);
-    LOG_INFO_("\n");
+    LOG_INFO("Sending ACK\n");
+    for (; i < 10; i++)
+    {
+        send_ack_to_root();
+        etimer_set(&timer, CLOCK_SECOND / 2);
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+    }
 
-    udp_set_sink(&root_addr);
+    while (1)
+    {
+        if (channel_ready)
+        {
+            local_config = config;
+            break;
+        }
+        etimer_set(&timer, CLOCK_SECOND * 2);
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
 
+        PROCESS_YIELD();
+    }
+
+    etimer_set(&timer, CLOCK_SECOND * local_config.delay);
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+
+    LOG_INFO("New channel: %d\n", local_config.ch);
+    NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, local_config.ch);
+
+    while (1)
+    {
+        if (root_is_known())
+        {
+            break;
+        }
+        etimer_set(&timer, CLOCK_SECOND * 1);
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+    }
+
+    etimer_set(&timer, CLOCK_SECOND * 5);
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+    process_post(PROCESS_BROADCAST, START_PIPELINE_EVENT, NULL);
+
+    PROCESS_YIELD();
     PROCESS_END();
 }
