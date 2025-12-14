@@ -104,14 +104,17 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
         static uint8_t packed_buf[SPRINTZ_HDR_LEN + 
             ((BLOCK_SIZE * BLOCK_D * MAX_W + 7) / 8)];
     #else
-        /* PLA header layout:
-        ** [0]      uint8_t number_of_segments
+        /* PLA header layout (matches Sprintz for decoder compatibility):
+        ** [0..1]   uint16_t seq
+        ** [2..3]   uint16_t n_in_block
+        ** [4..5]   int16_t prev_sample (unused for PLA, set to 0)
+        ** [6+]     encoder output (num_segments + segments)
         ** Payload: 5 bytes per segment (end_index, start_value, slope_q) */
-        enum { PLA_HDR_LEN = 1 };
-        
+        enum { PLA_HDR_LEN = 6 };
+            
         /* Worst case: each sample is its own segment = timeseries_length segments
-        ** Each segment = 5 bytes */
-        static uint8_t packed_buf[PLA_HDR_LEN + (BLOCK_SIZE * 5)];
+        ** Each segment = 5 bytes, +1 for num_segments byte */
+        static uint8_t packed_buf[PLA_HDR_LEN + 1 + (BLOCK_SIZE * 5)];
     #endif
 
         static uint16_t seq = 0;
@@ -155,21 +158,30 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
             LOG_INFO("TX seq=%u n=%d bytes=%u prev=%d\n",
                      (unsigned)seq, n_in_block, (unsigned)total_len, (int)prev_sample);
     #else
-            // PLA encoding
-            // The encoder writes the number_of_segments header and segments directly to packed_buf
-            size_t total_len = 0;
+            // Write PLA header (little-endian) - 6 bytes to match Sprintz format
+            packed_buf[0] = (uint8_t)(seq & 0xff);
+            packed_buf[1] = (uint8_t)((seq >> 8) & 0xff);
+            packed_buf[2] = (uint8_t)(n_in_block & 0xff);
+            packed_buf[3] = (uint8_t)((n_in_block >> 8) & 0xff);
+            packed_buf[4] = 0;  // prev_sample low byte (unused for PLA)
+            packed_buf[5] = 0;  // prev_sample high byte (unused for PLA)
+
+            // PLA encoding - encode after header
+            size_t payload_len = 0;
             encode(&timeseries_data[i],
                    n_in_block,
-                   packed_buf,
-                   sizeof(packed_buf),
-                   &total_len);
+                   packed_buf + PLA_HDR_LEN,
+                   sizeof(packed_buf) - PLA_HDR_LEN,
+                   &payload_len);
+
+            size_t total_len = PLA_HDR_LEN + payload_len;
 
             #if (LOG_LEVEL == LOG_LEVEL_DBG)
             log_packed_bytes(packed_buf, total_len);
             #endif
 
-            // PLA log (number of segments is in packed_buf[0])
-            uint8_t num_segments = packed_buf[0];
+            // PLA log (number of segments is in packed_buf[PLA_HDR_LEN])
+            uint8_t num_segments = packed_buf[PLA_HDR_LEN];
             LOG_INFO("TX seq=%u n=%d bytes=%u segments=%u\n",
                      (unsigned)seq, n_in_block, (unsigned)total_len, num_segments);
     #endif
