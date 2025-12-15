@@ -87,9 +87,9 @@ void decode_using_pla(const uint8_t *data, uint16_t datalen)
      * Header: seq(2) + n_in_block(2) + prev_sample(2) = 6 bytes
      * Same header format as Sprintz for compatibility
      */
-    enum { HDR_LEN = 2 + 2 + 2 };
+    enum { PLA_HDR_LEN = 2 + 2 + 2 };
     
-    if (datalen < HDR_LEN) {
+    if (datalen < PLA_HDR_LEN) {
         LOG_ERR("Packet too short for header\n");
         return;
     }
@@ -100,8 +100,8 @@ void decode_using_pla(const uint8_t *data, uint16_t datalen)
     int16_t prev_sample_val = (int16_t)(data[4] | (data[5] << 8));
     (void)prev_sample_val;
 
-    const uint8_t *payload = data + HDR_LEN;
-    uint16_t payload_len = (uint16_t)(datalen - HDR_LEN);
+    const uint8_t *payload = data + PLA_HDR_LEN;
+    uint16_t payload_len = (uint16_t)(datalen - PLA_HDR_LEN);
 
     LOG_INFO("RX seq=%u n=%u payload=%u bytes\n",
             (unsigned)seq, (unsigned)n_in_block, (unsigned)payload_len);

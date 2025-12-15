@@ -61,9 +61,9 @@ process_event_t START_PIPELINE_EVENT;
 PROCESS_THREAD(main_pipeline_process, ev, data)
 {
     static struct etimer timer;
-    static uint8_t packed_buf[PACKED_BUF_SIZE];
-    static uint8_t seq = 0;
-    static int i = 0;
+    //static uint8_t packed_buf[PACKED_BUF_SIZE];
+    //static uint8_t seq = 0;
+    //static int i = 0;
 
     PROCESS_BEGIN();
 
@@ -154,6 +154,7 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
 
             #if (LOG_LEVEL == LOG_LEVEL_DBG)
             log_packed_bytes(packed_buf, payload_len);
+            #endif
 
             LOG_INFO("TX seq=%u n=%d bytes=%u prev=%d\n",
                      (unsigned)seq, n_in_block, (unsigned)total_len, (int)prev_sample);
@@ -187,7 +188,7 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
     #endif
 
             // Send data
-            send_to_sink(packed_buf, payload_len);
+            send_to_sink(packed_buf, total_len);
 
             seq++;
         }
