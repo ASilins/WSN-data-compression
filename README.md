@@ -47,7 +47,8 @@ The motes have two optional build configurations, which you can add to build:
 
 Algorithm options:
 1. sprintz - Lossless compression algorithm
-2. none - No compression algorithm
+2. pla - Lossy compression algorithm
+3. none - No compression algorithm
 
 ### Practical instructions
 
