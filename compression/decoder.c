@@ -3,6 +3,7 @@
 #define LOG_MODULE "[Decoder]"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
+/* ---------- Sprintz Algorithm ---------- */
 #if SPRINTZ
 void decode_using_sprintz(const uint8_t *data, uint16_t datalen)
 {
@@ -75,6 +76,62 @@ void decode_using_sprintz(const uint8_t *data, uint16_t datalen)
 }
 #endif /* SPRINTZ */
 
+/* ---------- PLA Algorithm ---------- */
+#if PLA
+
+void decode_using_pla(const uint8_t *data, uint16_t datalen)
+{
+    if (datalen < HDR_LEN) {
+        LOG_ERR("Packet too short for header\n");
+        return;
+    }
+
+    uint8_t seq = (uint8_t)(data[0]);
+    uint8_t n_in_block = (uint8_t)(data[1]);
+
+    const uint8_t *payload = data + HDR_LEN;
+    uint16_t payload_len = (uint16_t)(datalen - HDR_LEN);
+
+    LOG_INFO("RX seq=%u n=%u payload=%u bytes\n",
+            (unsigned)seq, (unsigned)n_in_block, (unsigned)payload_len);
+
+    /* Gap detection */
+    static uint16_t last_seq = 0;
+    static bool have_last = false;
+    if (have_last) {
+        uint16_t delta = (uint16_t)(seq - last_seq);
+        if (delta != 1) {
+            uint16_t expected = (uint16_t)(last_seq + 1);
+            uint16_t lost = (uint16_t)(delta - 1);
+            LOG_WARN("Seq gap: expected %u got %u (lost %u)\n",
+                     expected, seq, lost);
+        }
+    } else {
+        have_last = true;
+    }
+    last_seq = seq;
+
+    /* Decode */
+    int16_t decoded_block[BLOCK_SIZE];
+    
+    bool ok = pla_decode_block(payload, payload_len, 
+                               (int)n_in_block, decoded_block);
+
+    if (!ok) {
+        LOG_ERR("PLA decode failed for seq=%u\n", (unsigned)seq);
+        return;
+    }
+
+    LOG_INFO("Decoded block (seq=%u): ", (unsigned)seq);
+    for (int i = 0; i < (int)n_in_block; i++) {
+        LOG_INFO_("%d ", (int)decoded_block[i]);
+    }
+    LOG_INFO_("\n");
+}
+
+#endif /* PLA */
+
+/* ---------- None ---------- */
 #if NONE
 
 void decode_using_none(const uint8_t *data, uint16_t datalen)
@@ -108,10 +165,16 @@ void decode(const uint8_t *data, uint16_t datalen)
     decode_using_sprintz(data, datalen);
     return;
     #endif /* SPRINTZ */
+
+    #if PLA
+    decode_using_pla(data, datalen);
+    return;
+    #endif /* PLA */
+
     #if NONE
     decode_using_none(data, datalen);
     return;
     #endif /* NONE */
 
-    LOG_ERR("No algorithm specified for decoding");
+    LOG_ERR("No algorithm specified for decoding\n");
 }

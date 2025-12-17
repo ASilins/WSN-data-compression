@@ -3,7 +3,26 @@
 #define LOG_MODULE "[Encoder]"
 #define LOG_LEVEL LOG_LEVEL_DBG
 
-/* ---------- Algorithm definitions --------- */
+/* ---------- PLA Algorithm ---------- */
+#if PLA
+
+void encode_pla(const int16_t* data,
+    int n_in_block,
+    uint8_t *packed_buf,
+    size_t packed_buf_capacity,
+    size_t *packed_len)
+{
+    bool ok = pla_encode_block(data, n_in_block, 
+        packed_buf, packed_buf_capacity, packed_len);
+    
+    if (!ok) {
+        LOG_ERR("PLA encode failed (n=%d)\n", n_in_block);
+    }
+}
+
+#endif /* PLA */
+
+/* ---------- Sprintz Algorithm ---------- */
 #if SPRINTZ
 
 static int16_t errors_out[BLOCK_SIZE * BLOCK_D];
@@ -40,7 +59,7 @@ void encode_sprintz(const int16_t* data,
         LOG_ERR("Bit-pack overflow or error (n=%d)\n", n_in_block);
     }
 
-    *packed_len += 2;
+    *packed_len += SPRINTZ_HDR_LEN;
 
     #if PRINT_RAW_FIRE_ERRORS
     print_raw_fire_errors(n_in_block);
@@ -92,6 +111,12 @@ void encode(const int16_t* data,
     return;
     #endif /* SPRINTZ */
 
+    #if PLA
+    encode_pla(data, n_in_block, packed_buf, 
+            packed_buf_capacity, packed_len);
+    return;
+    #endif /* PLA */
+
     #if NONE
     encode_none(data, n_in_block, packed_buf,
         packed_buf_capacity, packed_len);
@@ -99,6 +124,6 @@ void encode(const int16_t* data,
     #endif /* NONE */
 
     // Default fall back log
-    LOG_ERR("No algorithm specified");
+    LOG_ERR("No compression algorithm specified!\n");
+    *packed_len = 0;
 }
-/* ========================================== */

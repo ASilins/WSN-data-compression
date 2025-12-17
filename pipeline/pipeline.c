@@ -19,36 +19,38 @@ void log_packed_bytes(uint8_t *packed_buf, size_t packed_len)
 void log_algo()
 {
     #if SPRINTZ
-    LOG_INFO("Sprintz\n");
+    // LOG_INFO("Sprintz\n"); // ROM space issue
     #endif /* SPRINTZ */
+    #if PLA
+    // LOG_INFO("PLA\n"); // ROM space issue
+    #endif /* PLA */
     #if NONE
     LOG_INFO("None\n");
     #endif /* NONE */
 }
 
 // for logging energest stats
-void log_energest_stats()
+static inline uint16_t
+energy_mj(uint64_t ticks, uint16_t current_01ma)
+{
+  /* mJ = ticks * 3V * (current_01ma / 10) / ENERGEST_SECOND */
+  return (uint16_t)((ticks * 3 * current_01ma) / (((unsigned long) ENERGEST_SECOND) * 10));
+}
+
+void log_energest()
 {
     energest_flush();
-
-    unsigned long energest_second = ENERGEST_SECOND;
-    
-    uint64_t cpu_time = energest_type_time(ENERGEST_TYPE_CPU);
-    uint64_t lpm_time = energest_type_time(ENERGEST_TYPE_LPM);
-    uint64_t tx_time = energest_type_time(ENERGEST_TYPE_TRANSMIT);
-    uint64_t rx_time = energest_type_time(ENERGEST_TYPE_LISTEN);
     
     // Energy (mJ) = (ticks / ENERGEST_SECOND) * 1000ms * voltage * current_mA / 1000
     // Simplified: (ticks * voltage * current_mA) / ENERGEST_SECOND
-    
-    uint16_t cpu_mj = (uint16_t)((cpu_time * 3 * 18) / (energest_second * 10)); // 3V * 1.8mA
-    uint16_t lpm_mj = (uint16_t)((lpm_time * 3 * 51) / (energest_second * 1000)); // 3V * 0.051mA
-    uint16_t tx_mj = (uint16_t)((tx_time * 3 * 195) / (energest_second * 10)); // 3V * 19.5mA
-    uint16_t rx_mj = (uint16_t)((rx_time * 3 * 218) / (energest_second * 10)); // 3V * 21.8mA
+    uint16_t cpu_mj = energy_mj(energest_type_time(ENERGEST_TYPE_CPU), 18); // 3V * 1.8mA
+    uint16_t lpm_mj = energy_mj(energest_type_time(ENERGEST_TYPE_LPM), 1); // 3V * 0.051mA
+    uint16_t tx_mj = energy_mj(energest_type_time(ENERGEST_TYPE_TRANSMIT), 195); // 3V * 19.5mA
+    uint16_t rx_mj = energy_mj(energest_type_time(ENERGEST_TYPE_LISTEN), 218); // 3V * 21.8mA
     
     uint16_t total_mj = (uint16_t)(cpu_mj + lpm_mj + tx_mj + rx_mj);
     
-    LOG_INFO("E:%u,%u,%u,%u,%u\n", cpu_mj, lpm_mj, tx_mj, rx_mj, total_mj);
+    LOG_INFO("E: cpu: %u, lpm: %u, tx: %u, rx: %u, t: %u\n", cpu_mj, lpm_mj, tx_mj, rx_mj, total_mj);
 }
 
 /* ----- Process definitions -----*/
@@ -92,6 +94,7 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
         log_algo();
 
         energest_flush();
+
         for (; i < timeseries_length; i += BLOCK_SIZE)
         {
             // Yield
@@ -102,7 +105,7 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
                 ? (uint8_t) BLOCK_SIZE
                 : (uint8_t) (timeseries_length - i);
 
-            // Write header
+            // Write General header
             packed_buf[0] = seq;
             packed_buf[1] = n_in_block;
 
@@ -113,24 +116,25 @@ PROCESS_THREAD(main_pipeline_process, ev, data)
                    packed_buf + HDR_LEN,
                    sizeof(packed_buf) - HDR_LEN,
                    &payload_len);
-            payload_len += HDR_LEN;
+            size_t total_len = HDR_LEN + payload_len;
 
             #if (LOG_LEVEL == LOG_LEVEL_DBG)
-            log_packed_bytes(packed_buf, payload_len);
-
-            // Producer-side log
-            LOG_DBG("TX seq=%u n=%d bytes=%u \n", (unsigned)seq, n_in_block, (unsigned)payload_len);
+            log_packed_bytes(packed_buf, total_len);
             #endif
 
+            // Producer-side log
+            LOG_INFO("TX seq=%u n=%d bytes=%u \n", (unsigned)seq, n_in_block, (unsigned)total_len);
+
             // Send data
-            send_to_sink(packed_buf, payload_len);
+            send_to_sink(packed_buf, total_len);
+            // send_to_sink(packed_buf, total_len);
 
             seq++;
         }
 
         LOG_INFO("Done\n");
 
-        log_energest_stats();
+        log_energest();
         break;
     }
 
