@@ -43,8 +43,9 @@
 /* Our custom header layout:
 ** [0]   uint8_t seq
 ** [1]   uint8_t n_in_block
+** Default header lenght for all algorithms
 */
-#define HDR_LEN 2 // Default header lenght for all algorithms
+#define HDR_LEN 2
 
 /* ---------- Sprintz Configuration ---------- */
 #if SPRINTZ
@@ -52,7 +53,7 @@
 #define BLOCK_D 1 // if uninvariate
 
 /* Sprintz header additional info:
-** [4..5]   int16_t  prev_sample (for BLOCK_D == 1)
+** [2..3]   int16_t  prev_sample (for BLOCK_D == 1)
 */
 #define SPRINTZ_HDR_LEN 2
 

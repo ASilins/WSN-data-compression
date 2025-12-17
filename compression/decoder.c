@@ -1,6 +1,4 @@
 #include "decoder.h"
-#include "sprintz/fire.h"
-#include "sprintz/sprintz_decoder.h"
 
 #define LOG_MODULE "[Decoder]"
 #define LOG_LEVEL LOG_LEVEL_INFO
@@ -83,25 +81,16 @@ void decode_using_sprintz(const uint8_t *data, uint16_t datalen)
 
 void decode_using_pla(const uint8_t *data, uint16_t datalen)
 {
-    /* 
-     * Header: seq(2) + n_in_block(2) + prev_sample(2) = 6 bytes
-     * Same header format as Sprintz for compatibility
-     */
-    enum { PLA_HDR_LEN = 2 + 2 + 2 };
-    
-    if (datalen < PLA_HDR_LEN) {
+    if (datalen < HDR_LEN) {
         LOG_ERR("Packet too short for header\n");
         return;
     }
 
-    uint16_t seq = (uint16_t)(data[0] | (data[1] << 8));
-    uint16_t n_in_block = (uint16_t)(data[2] | (data[3] << 8));
-    /* prev_sample not needed for PLA, but kept for compatibility */
-    int16_t prev_sample_val = (int16_t)(data[4] | (data[5] << 8));
-    (void)prev_sample_val;
+    uint8_t seq = (uint8_t)(data[0]);
+    uint8_t n_in_block = (uint8_t)(data[1]);
 
-    const uint8_t *payload = data + PLA_HDR_LEN;
-    uint16_t payload_len = (uint16_t)(datalen - PLA_HDR_LEN);
+    const uint8_t *payload = data + HDR_LEN;
+    uint16_t payload_len = (uint16_t)(datalen - HDR_LEN);
 
     LOG_INFO("RX seq=%u n=%u payload=%u bytes\n",
             (unsigned)seq, (unsigned)n_in_block, (unsigned)payload_len);
@@ -142,6 +131,7 @@ void decode_using_pla(const uint8_t *data, uint16_t datalen)
 
 #endif /* PLA */
 
+/* ---------- None ---------- */
 #if NONE
 
 void decode_using_none(const uint8_t *data, uint16_t datalen)
@@ -175,15 +165,16 @@ void decode(const uint8_t *data, uint16_t datalen)
     decode_using_sprintz(data, datalen);
     return;
     #endif /* SPRINTZ */
-    #if NONE
-    decode_using_none(data, datalen);
-    return;
-    #endif /* NONE */
 
     #if PLA
     decode_using_pla(data, datalen);
     return;
     #endif /* PLA */
+
+    #if NONE
+    decode_using_none(data, datalen);
+    return;
+    #endif /* NONE */
 
     LOG_ERR("No algorithm specified for decoding\n");
 }

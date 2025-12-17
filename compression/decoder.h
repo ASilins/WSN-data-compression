@@ -4,13 +4,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+
 #include "sys/log.h"
 #include "project-conf.h"
+#include "sys/energest.h"
 
 /* Algorithm-specific includes */
 #if SPRINTZ
 #include "sprintz_decoder.h"
-#include "fire.h"
+#include "sprintz/fire.h"
+#include "sprintz/sprintz_decoder.h"
 #endif
 
 #if PLA

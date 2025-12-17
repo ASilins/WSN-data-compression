@@ -59,7 +59,7 @@ void encode_sprintz(const int16_t* data,
         LOG_ERR("Bit-pack overflow or error (n=%d)\n", n_in_block);
     }
 
-    *packed_len += 2;
+    *packed_len += SPRINTZ_HDR_LEN;
 
     #if PRINT_RAW_FIRE_ERRORS
     print_raw_fire_errors(n_in_block);
